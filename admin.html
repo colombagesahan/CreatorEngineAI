@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CreatorEngine - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Montserrat', sans-serif; background: #0f172a; color: white; }</style>
+</head>
+<body class="p-6">
+
+    <div id="app" class="max-w-4xl mx-auto space-y-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center border-b border-gray-700 pb-4">
+            <h1 class="text-2xl font-black text-blue-500">ADMIN CONTROL</h1>
+            <button id="logoutBtn" class="bg-red-900 text-red-200 px-4 py-2 rounded text-xs font-bold">Logout</button>
+        </div>
+
+        <!-- Auth Guard Message -->
+        <div id="authMessage" class="hidden text-center text-yellow-500 font-bold p-10 bg-gray-800 rounded">
+            Checking Permissions...
+        </div>
+
+        <!-- Pending Requests List -->
+        <div id="dashboard" class="hidden space-y-4">
+            <div class="flex items-center gap-2">
+                <h2 class="text-lg font-bold">Pending Approvals</h2>
+                <span id="countBadge" class="bg-yellow-500 text-black text-xs font-black px-2 py-0.5 rounded-full">0</span>
+            </div>
+
+            <div id="requestsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Cards will be injected here -->
+            </div>
+            
+            <p id="emptyState" class="hidden text-gray-500 text-sm text-center py-10">No pending slips to review.</p>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+        <img id="modalImg" src="" class="max-h-screen max-w-full rounded shadow-2xl">
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, doc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyAE88FW3US3aZRn5TLEdXkad-jvak3W4yI",
+            authDomain: "sahantechhub.firebaseapp.com",
+            projectId: "sahantechhub",
+            storageBucket: "sahantechhub.firebasestorage.app",
+            messagingSenderId: "605792804808",
+            appId: "1:605792804808:web:531be19ce5f6a4a17faafd",
+            measurementId: "G-JMSXWQ964T"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // DOM Elements
+        const dashboard = document.getElementById('dashboard');
+        const authMessage = document.getElementById('authMessage');
+        const list = document.getElementById('requestsList');
+        const empty = document.getElementById('emptyState');
+        const badge = document.getElementById('countBadge');
+
+        // ADMIN EMAIL (Must match exactly)
+        const ADMIN_EMAIL = "colombagesahan@gmail.com";
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+            
+            if (user.email !== ADMIN_EMAIL) {
+                authMessage.innerText = "ACCESS DENIED. ADMIN ONLY.";
+                authMessage.classList.remove('hidden');
+                setTimeout(() => window.location.href = "dashboard.html", 2000);
+                return;
+            }
+
+            authMessage.classList.add('hidden');
+            dashboard.classList.remove('hidden');
+            loadPendingRequests();
+        });
+
+        async function loadPendingRequests() {
+            list.innerHTML = '<div class="text-blue-500 animate-pulse">Loading...</div>';
+            
+            try {
+                const q = query(
+                    collection(db, "users"), 
+                    where("status", "==", "pending"),
+                    orderBy("slip_uploaded_at", "desc")
+                );
+                
+                const snap = await getDocs(q);
+                list.innerHTML = '';
+                badge.innerText = snap.size;
+
+                if (snap.empty) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                snap.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const uid = docSnap.id;
+                    const date = data.slip_uploaded_at ? new Date(data.slip_uploaded_at.toDate()).toLocaleString() : 'Just now';
+
+                    const card = document.createElement('div');
+                    card.className = "bg-gray-800 border border-gray-700 rounded-xl p-4 flex flex-col gap-4";
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-white text-sm">${data.email}</h3>
+                                <p class="text-xs text-gray-400">Uploaded: ${date}</p>
+                            </div>
+                            <span class="bg-yellow-500/20 text-yellow-500 text-[10px] font-bold px-2 py-1 rounded">PENDING</span>
+                        </div>
+                        
+                        <div class="h-40 bg-black rounded-lg overflow-hidden border border-gray-600 cursor-zoom-in group relative" onclick="openImage('${data.slip_url}')">
+                            <img src="${data.slip_url}" class="w-full h-full object-cover group-hover:opacity-75 transition">
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <i class="fas fa-search-plus text-white text-xl"></i>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 mt-auto">
+                            <button onclick="updateStatus('${uid}', 'locked')" class="bg-red-900/50 hover:bg-red-900 text-red-200 py-2 rounded font-bold text-xs transition border border-red-800">
+                                <i class="fas fa-times"></i> REJECT
+                            </button>
+                            <button onclick="updateStatus('${uid}', 'active')" class="bg-green-900/50 hover:bg-green-900 text-green-200 py-2 rounded font-bold text-xs transition border border-green-800">
+                                <i class="fas fa-check"></i> APPROVE
+                            </button>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+
+            } catch (e) {
+                console.error(e);
+                list.innerHTML = `<div class="text-red-500">Error: ${e.message}</div>`;
+            }
+        }
+
+        // Expose functions to window for HTML buttons
+        window.updateStatus = async (uid, newStatus) => {
+            if(!confirm(`Mark this user as ${newStatus.toUpperCase()}?`)) return;
+            try {
+                await updateDoc(doc(db, "users", uid), { status: newStatus });
+                loadPendingRequests(); // Refresh
+            } catch (e) { alert("Error: " + e.message); }
+        };
+
+        window.openImage = (url) => {
+            document.getElementById('modalImg').src = url;
+            document.getElementById('imageModal').classList.remove('hidden');
+        };
+
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            signOut(auth).then(() => window.location.href = "index.html");
+        });
+    </script>
+</body>
+</html>
