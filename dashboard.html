@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CreatorEngineAI - Studio</title>
+    
+    <!-- PWA Setup -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Montserrat', sans-serif; background: #050505; color: white; overflow-x: hidden; }
+        .glass-panel { background: rgba(20, 20, 35, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .recording-pulse { animation: pulse-red 1.5s infinite; background-color: #ef4444 !important; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        /* 250px Mobile Optimization */
+        @media (max-width: 300px) {
+            .xs-stack { flex-direction: column !important; }
+            .xs-text { font-size: 9px !important; }
+            .xs-hide { display: none !important; }
+        }
+    </style>
+</head>
+<body x-data="app()" x-init="initApp()" class="min-h-screen flex flex-col relative">
+
+    <!-- LOADING SCREEN -->
+    <div x-show="loading" class="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center gap-4">
+        <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest animate-pulse">Processing...</p>
+    </div>
+
+    <!-- LOCKED SCREEN (Payment Wall) -->
+    <div x-show="!loading && subscriptionState === 'locked'" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-start p-6 overflow-y-auto">
+        <div class="w-full max-w-sm space-y-6 mt-10">
+            <div class="text-center">
+                <i class="fas fa-lock text-4xl text-red-500 mb-4"></i>
+                <h2 class="text-xl font-black text-white">Trial Expired</h2>
+                <p class="text-xs text-gray-400 mt-2">Your 24-hour free access has ended.</p>
+            </div>
+
+            <!-- Bank Details Card -->
+            <div class="glass-panel p-5 rounded-xl border-l-4 border-yellow-500 space-y-4">
+                <h3 class="text-xs font-bold text-yellow-500 uppercase tracking-wider">Upgrade to Unlimited</h3>
+                <p class="text-2xl font-black">Rs. 1000 <span class="text-xs font-normal text-gray-400">/mo</span></p>
+                
+                <div class="bg-gray-900/50 p-4 rounded-lg space-y-2 text-xs border border-gray-800">
+                    <div class="flex justify-between"><span class="text-gray-500">Bank:</span> <span class="font-bold">Commercial Bank</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Branch:</span> <span class="font-bold">Homagama</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Name:</span> <span class="font-bold text-blue-400">COLOMBAGE SD</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Account:</span> <span class="font-mono font-bold text-lg select-all text-yellow-400">8750053306</span></div>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="space-y-3">
+                <label class="block text-xs font-bold text-gray-400 uppercase text-center">Upload Bank Slip / Screenshot</label>
+                <div class="relative group">
+                    <input type="file" accept="image/*" @change="handleSlipUpload" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" :disabled="uploading">
+                    <div class="glass-panel p-4 rounded-xl border-dashed border-2 border-gray-700 group-hover:border-blue-500 transition flex flex-col items-center justify-center gap-2 h-32">
+                        <i class="fas" :class="uploading ? 'fa-circle-notch fa-spin text-blue-500' : 'fa-cloud-upload-alt text-gray-500'"></i>
+                        <span class="text-[10px] text-gray-400 font-bold" x-text="uploading ? 'Uploading...' : 'Tap to Upload Receipt'"></span>
+                    </div>
+                </div>
+                <p class="text-[9px] text-center text-gray-600">
+                    Dashboard unlocks immediately after upload.<br>False receipts will result in a permanent ban.
+                </p>
+            </div>
+            
+            <button @click="logout()" class="text-xs text-red-500 font-bold hover:text-red-400 mt-4">Sign Out</button>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD (Protected) -->
+    <div x-show="!loading && (subscriptionState === 'active' || subscriptionState === 'trial' || subscriptionState === 'pending')" class="flex-1 flex flex-col max-w-2xl mx-auto w-full border-x border-gray-900 shadow-2xl">
+        
+        <!-- HEADER -->
+        <div class="p-4 border-b border-gray-800 bg-black/90 backdrop-blur z-30 sticky top-0 flex justify-between items-center">
+            <div>
+                <h1 class="text-lg font-black text-white flex items-center gap-2">
+                    <i class="fas fa-robot text-blue-500"></i> CreatorEngine<span class="text-[9px] text-gray-500">AI</span>
+                </h1>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="w-2 h-2 rounded-full animate-pulse" 
+                          :class="subscriptionState === 'trial' ? 'bg-green-500' : (subscriptionState === 'pending' ? 'bg-yellow-500' : 'bg-blue-500')"></span>
+                    <p class="text-[9px] font-bold uppercase tracking-wider" 
+                       :class="subscriptionState === 'trial' ? 'text-green-400' : (subscriptionState === 'pending' ? 'text-yellow-400' : 'text-blue-400')"
+                       x-text="getStatusText()">
+                    </p>
+                </div>
+            </div>
+            <button @click="logout()" class="text-[10px] bg-gray-900 border border-gray-800 px-3 py-1 rounded text-gray-400">Logout</button>
+        </div>
+
+        <!-- APP CONTENT (Video Creator UI) -->
+        <div class="flex-1 p-4" x-data="videoApp()">
+             
+            <!-- Step 1: Strategy -->
+            <div x-show="step === 1" class="space-y-6 animate-fade-in">
+                <!-- Topic Input -->
+                <div class="space-y-2">
+                    <label class="text-[10px] font-bold text-gray-500 uppercase">Video Topic</label>
+                    <textarea x-model="topic" rows="2" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-blue-600 outline-none" placeholder="e.g. History of Sri Lanka..."></textarea>
+                </div>
+
+                <!-- Generate Button -->
+                <button @click="generateScript()" :disabled="loading" 
+                        class="w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg">
+                    <span x-show="!loading">CREATE VIDEO <i class="fas fa-magic ml-1"></i></span>
+                    <span x-show="loading"><i class="fas fa-circle-notch fa-spin"></i> Processing...</span>
+                </button>
+            </div>
+
+            <!-- Step 2: Editor -->
+            <div x-show="step === 2" class="space-y-4">
+                 <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xs font-bold text-white">Scene Editor</h3>
+                    <button @click="reset()" class="text-[10px] text-red-400">Reset</button>
+                </div>
+                
+                <template x-for="(scene, index) in scenes" :key="index">
+                    <div class="glass-panel p-3 rounded-xl border-l-2" :style="`border-left-color: ${scene.color}`">
+                        <p class="text-[10px] text-gray-400 mb-2 uppercase font-bold" x-text="'Scene ' + (index+1)"></p>
+                        <textarea x-model="scene.text" rows="2" class="w-full bg-transparent text-sm text-white border-none outline-none resize-none mb-2"></textarea>
+                        
+                        <!-- File Upload -->
+                        <div class="relative w-full h-20 bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden border border-gray-800" @click="$refs['f'+index].click()">
+                            <img x-show="scene.media_url" :src="scene.media_url" class="w-full h-full object-cover">
+                            <div x-show="!scene.media_url" class="text-center">
+                                <i class="fas fa-image text-gray-600"></i>
+                                <span class="text-[9px] block text-gray-500">Tap to Add Image</span>
+                            </div>
+                            <input :x-ref="'f'+index" type="file" class="hidden" accept="image/*" @change="handleUpload($event, index)">
+                        </div>
+                    </div>
+                </template>
+
+                <button @click="startRendering()" class="w-full py-3 bg-green-600 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-green-900/20 shadow-lg">
+                    RENDER FINAL VIDEO <i class="fas fa-film ml-2"></i>
+                </button>
+            </div>
+
+            <!-- Step 3: Result -->
+            <div x-show="step === 3" class="flex flex-col items-center gap-4">
+                 <div class="w-full max-w-sm rounded-xl overflow-hidden border border-gray-800 shadow-2xl bg-black aspect-[9/16] relative">
+                     <video :src="videoURL" controls class="w-full h-full object-cover"></video>
+                 </div>
+                 
+                 <a :href="videoURL" download="viral_short.mp4" class="w-full bg-blue-600 text-white py-3 rounded-xl text-center font-bold text-xs uppercase shadow-lg hover:bg-blue-500 transition">
+                    Download MP4 (High Quality) ⬇️
+                 </a>
+                 
+                 <!-- SEO Box -->
+                 <div class="w-full glass-panel p-4 rounded-xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-bold text-gray-400">Viral Title</span>
+                        <button @click="navigator.clipboard.writeText(generatedTitle)" class="text-[9px] text-blue-400 hover:text-white">Copy</button>
+                    </div>
+                    <div class="bg-gray-900 p-2 rounded text-xs select-all border border-gray-800" x-text="generatedTitle"></div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-bold text-gray-400">Description</span>
+                        <button @click="navigator.clipboard.writeText(generatedDescription)" class="text-[9px] text-blue-400 hover:text-white">Copy</button>
+                    </div>
+                    <div class="bg-gray-900 p-2 rounded text-[10px] text-gray-300 h-20 overflow-y-auto select-all border border-gray-800" x-text="generatedDescription"></div>
+                 </div>
+
+                 <button @click="reset()" class="text-xs text-gray-500 hover:text-white transition">Create Another</button>
+            </div>
+
+            <canvas id="videoCanvas" class="hidden"></canvas>
+        </div>
+    </div>
+
+    <!-- FIREBASE & LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js";
+
+        // CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyAE88FW3US3aZRn5TLEdXkad-jvak3W4yI",
+            authDomain: "sahantechhub.firebaseapp.com",
+            projectId: "sahantechhub",
+            storageBucket: "sahantechhub.firebasestorage.app",
+            messagingSenderId: "605792804808",
+            appId: "1:605792804808:web:531be19ce5f6a4a17faafd",
+            measurementId: "G-JMSXWQ964T"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+        const functions = getFunctions(app);
+
+        // ALPINE MAIN APP
+        window.app = function() {
+            return {
+                loading: true,
+                user: null,
+                subscriptionState: 'loading', // trial, active, locked, pending
+                uploading: false,
+
+                async initApp() {
+                    onAuthStateChanged(auth, async (u) => {
+                        if (!u) {
+                            window.location.href = "index.html";
+                            return;
+                        }
+                        this.user = u;
+                        await this.checkSubscription(u);
+                    });
+                },
+
+                async checkSubscription(user) {
+                    const userRef = doc(db, "users", user.uid);
+                    const snap = await getDoc(userRef);
+                    
+                    if (!snap.exists()) {
+                        // NEW USER: Start 24h Trial
+                        await setDoc(userRef, {
+                            email: user.email,
+                            trial_start: serverTimestamp(),
+                            status: 'trial',
+                            created_at: serverTimestamp()
+                        });
+                        this.subscriptionState = 'trial';
+                    } else {
+                        const data = snap.data();
+                        
+                        if (data.status === 'active' || data.status === 'pending') {
+                            this.subscriptionState = data.status;
+                        } else {
+                            const now = Date.now();
+                            const startTime = data.trial_start ? data.trial_start.toMillis() : now;
+                            const hoursElapsed = (now - startTime) / (1000 * 60 * 60);
+                            
+                            if (hoursElapsed > 24) {
+                                this.subscriptionState = 'locked';
+                            } else {
+                                this.subscriptionState = 'trial';
+                            }
+                        }
+                    }
+                    this.loading = false;
+                },
+
+                getStatusText() {
+                    if (this.subscriptionState === 'trial') return '24H Free Trial';
+                    if (this.subscriptionState === 'active') return 'Pro Plan';
+                    if (this.subscriptionState === 'pending') return 'Reviewing Payment';
+                    return '';
+                },
+
+                async handleSlipUpload(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    this.uploading = true;
+                    try {
+                        const path = `slips/${this.user.uid}/${Date.now()}_${file.name}`;
+                        const storageRef = ref(storage, path);
+                        await uploadBytes(storageRef, file);
+                        const url = await getDownloadURL(storageRef);
+
+                        await updateDoc(doc(db, "users", this.user.uid), {
+                            status: 'pending',
+                            slip_url: url,
+                            slip_uploaded_at: serverTimestamp()
+                        });
+
+                        this.subscriptionState = 'pending';
+                        alert("Receipt Uploaded! Dashboard Unlocked.");
+                    } catch (err) {
+                        console.error(err);
+                        alert("Upload failed. Please try again.");
+                    }
+                    this.uploading = false;
+                },
+
+                logout() {
+                    signOut(auth).then(() => window.location.href = "index.html");
+                }
+            }
+        }
+
+        // VIDEO EDITOR LOGIC (Cloud-Connected)
+        window.videoApp = function() {
+            return {
+                step: 1, topic: '', scenes: [], loading: false, videoURL: null,
+                
+                // SEO Variables
+                generatedTitle: '', 
+                generatedDescription: '',
+
+                async generateScript() {
+                    if(!this.topic) return alert("Please enter a topic");
+                    this.loading = true;
+                    
+                    try {
+                        console.log("Calling Cloud Function...");
+                        
+                        // 1. CALL THE BACKEND (Hidden Logic)
+                        const generateFn = httpsCallable(functions, 'generateVideoScript');
+                        
+                        const result = await generateFn({ 
+                            topic: this.topic,
+                            country: 'USA'
+                        });
+
+                        const data = result.data;
+                        
+                        // 2. PROCESS SCENES
+                        this.scenes = data.scenes.map(s => ({
+                            text: s.text, 
+                            color: s.color_hex || '#3B82F6', 
+                            media_url: null, 
+                            duration: 5
+                        }));
+
+                        // 3. PROCESS SEO
+                        this.generatedTitle = data.metadata.title;
+                        this.generatedDescription = data.metadata.description;
+
+                        this.step = 2;
+                    } catch(e) { 
+                        console.error(e);
+                        alert("Generation Failed: " + e.message); 
+                    }
+                    this.loading = false;
+                },
+                
+                handleUpload(e, i) {
+                    const file = e.target.files[0];
+                    if(file) this.scenes[i].media_url = URL.createObjectURL(file);
+                },
+
+                reset() { 
+                    this.step = 1; this.scenes = []; this.videoURL = null; 
+                    this.generatedTitle = ''; this.generatedDescription = '';
+                },
+                
+                async startRendering() {
+                    // YOUR CLOUD FACTORY URL
+                    const CLOUD_RUN_URL = "https://video-renderer-605792804808.us-central1.run.app/render"; 
+
+                    // Validation
+                    const missingImgs = this.scenes.some(s => !s.media_url);
+                    if(missingImgs) return alert("⚠️ Please upload images for all scenes!");
+
+                    this.loading = true; // Use global loading overlay
+                    
+                    try {
+                        const token = await this.user.getIdToken();
+                        const scenesPayload = [];
+
+                        // 1. UPLOAD IMAGES TO FIREBASE STORAGE
+                        for (let i = 0; i < this.scenes.length; i++) {
+                            const s = this.scenes[i];
+                            let storagePath = null;
+
+                            if (s.media_url) {
+                                // Convert blob URL back to Blob
+                                const blob = await fetch(s.media_url).then(r => r.blob());
+                                const filename = `temp_uploads/${this.user.uid}/${Date.now()}_scene_${i}.jpg`;
+                                const storageRef = ref(storage, filename);
+                                
+                                console.log(`Uploading Scene ${i+1}...`);
+                                await uploadBytes(storageRef, blob);
+                                storagePath = filename; // We send the path to the server
+                            }
+
+                            scenesPayload.push({
+                                text: s.text,
+                                color: s.color,
+                                storagePath: storagePath
+                            });
+                        }
+
+                        // 2. CALL CLOUD FACTORY
+                        console.log("Sending to Cloud Renderer...");
+                        const response = await fetch(CLOUD_RUN_URL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({
+                                topic: this.topic,
+                                scenes: scenesPayload
+                            })
+                        });
+
+                        if (!response.ok) throw new Error("Rendering Failed on Server");
+
+                        const data = await response.json();
+                        
+                        // 3. SUCCESS
+                        this.videoURL = data.url;
+                        this.step = 3;
+
+                    } catch (e) {
+                        console.error(e);
+                        alert("Render Error: " + e.message);
+                    }
+                    this.loading = false;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
