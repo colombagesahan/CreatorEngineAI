@@ -1,13 +1,16 @@
-// 1. IMPORTS FOR FFMPEG
+// 1. IMPORTS (FFmpeg + Alpine)
 import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/esm/index.js";
 import { fetchFile, toBlobURL } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js";
+import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/module.esm.js";
 
 // --- PROTECTION CODE START ---
 (function(){
     var allowedDomain = "colombagesahan.github.io"; 
+    // Allow localhost/127.0.0.1 for testing, otherwise block
     if(window.location.hostname !== allowedDomain && 
        window.location.hostname !== "127.0.0.1" && 
-       window.location.hostname !== "localhost") {
+       window.location.hostname !== "localhost" &&
+       window.location.hostname !== "") { // Allow empty for file:// testing if needed
         document.body.innerHTML = "<div style='display:flex;height:100vh;align-items:center;justify-content:center;background:black;color:red;font-family:sans-serif;text-align:center;'><h1>⚠️ THEFT DETECTED</h1></div>";
         throw new Error("Execution Stopped");
     }
@@ -20,7 +23,7 @@ console.warn = (...args) => {
     origWarn.apply(console, args);
 };
 
-// Expose function globally for AlpineJS
+// Expose function globally
 window.videoApp = function() {
     return {
         step: 1, mode: 'quick', format: '9:16', topic: '', targetCountry: 'USA',
@@ -71,7 +74,6 @@ window.videoApp = function() {
             this.converting = true;
 
             try {
-                // Initialize FFmpeg singleton
                 if (!this.ffmpeg) {
                     this.ffmpeg = new FFmpeg();
                     const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
@@ -81,12 +83,8 @@ window.videoApp = function() {
                     });
                 }
 
-                // Write the current WebM blob to FFmpeg's virtual file system
                 await this.ffmpeg.writeFile('input.webm', await fetchFile(this.videoURL));
 
-                // Execute conversion
-                // -preset ultrafast: faster conversion
-                // -crf 23: standard quality
                 await this.ffmpeg.exec([
                     '-i', 'input.webm',
                     '-c:v', 'libx264',
@@ -95,20 +93,19 @@ window.videoApp = function() {
                     'output.mp4'
                 ]);
 
-                // Read result
                 const data = await this.ffmpeg.readFile('output.mp4');
                 const blob = new Blob([data.buffer], { type: 'video/mp4' });
                 this.mp4URL = URL.createObjectURL(blob);
 
             } catch (error) {
                 console.error("Conversion Error:", error);
-                alert("Conversion failed. Check console for SharedArrayBuffer errors (Requires COI fix).");
+                alert("Conversion failed. Check console for SharedArrayBuffer errors.");
             }
 
             this.converting = false;
         },
 
-        // --- EXISTING LOGIC BELOW ---
+        // --- EXISTING LOGIC ---
 
         async getValidModel() {
             if (this.validModel) return this.validModel;
@@ -430,3 +427,6 @@ window.videoApp = function() {
         }
     }
 }
+
+// 2. START ALPINE MANUALLY
+Alpine.start();
