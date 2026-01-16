@@ -11,51 +11,49 @@
 
     <!-- Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
         body { font-family: 'Montserrat', sans-serif; background: #050505; color: white; overflow-x: hidden; }
-        .glass-panel { background: rgba(20, 20, 35, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        /* Hide elements before Alpine loads */
+        .glass-panel { background: rgba(20, 20, 35, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.8); }
+        .mode-card { transition: all 0.3s ease; border: 2px solid transparent; cursor: pointer; }
+        .mode-card.selected { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+        .recording-pulse { animation: pulse-red 1.5s infinite; background-color: #ef4444 !important; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .range-slider { -webkit-appearance: none; width: 100%; height: 4px; background: #374151; border-radius: 2px; }
+        .range-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #3B82F6; border-radius: 50%; cursor: pointer; }
         [x-cloak] { display: none !important; }
     </style>
 </head>
 <body x-data="app()" x-init="initApp()" class="min-h-screen flex flex-col relative" x-cloak>
 
-    <!-- LOADING SCREEN -->
+    <!-- LOADING OVERLAY -->
     <div x-show="loading" class="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center gap-4">
         <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest animate-pulse">Loading Engine...</p>
     </div>
 
-    <!-- LOCKED SCREEN (Payment Wall) -->
+    <!-- PAYMENT WALL -->
     <div x-show="!loading && subscriptionState === 'locked'" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-start p-6 overflow-y-auto">
         <div class="w-full max-w-sm space-y-6 mt-10">
             <div class="text-center">
                 <i class="fas fa-lock text-4xl text-red-500 mb-4"></i>
                 <h2 class="text-xl font-black text-white">Trial Expired</h2>
-                <p class="text-xs text-gray-400 mt-2">Your 24-hour free access has ended.</p>
+                <p class="text-xs text-gray-400 mt-2">Upgrade to continue creating.</p>
             </div>
-
-            <!-- Bank Details Card -->
             <div class="glass-panel p-5 rounded-xl border-l-4 border-yellow-500 space-y-4">
-                <h3 class="text-xs font-bold text-yellow-500 uppercase tracking-wider">Upgrade to Unlimited</h3>
+                <h3 class="text-xs font-bold text-yellow-500 uppercase tracking-wider">Unlimited Access</h3>
                 <p class="text-2xl font-black">Rs. 1000 <span class="text-xs font-normal text-gray-400">/mo</span></p>
-                
                 <div class="bg-gray-900/50 p-4 rounded-lg space-y-2 text-xs border border-gray-800">
                     <div class="flex justify-between"><span class="text-gray-500">Bank:</span> <span class="font-bold">Commercial Bank</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Branch:</span> <span class="font-bold">Homagama</span></div>
                     <div class="flex justify-between"><span class="text-gray-500">Name:</span> <span class="font-bold text-blue-400">COLOMBAGE SD</span></div>
-                    <div class="flex justify-between"><span class="text-gray-500">Account:</span> <span class="font-mono font-bold text-lg select-all text-yellow-400">8750053306</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Account:</span> <span class="font-mono font-bold text-lg text-yellow-400">8750053306</span></div>
                 </div>
             </div>
-
-            <!-- Upload Section -->
             <div class="space-y-3">
-                <label class="block text-xs font-bold text-gray-400 uppercase text-center">Upload Bank Slip / Screenshot</label>
+                <label class="block text-xs font-bold text-gray-400 uppercase text-center">Upload Bank Slip</label>
                 <div class="relative group">
                     <input type="file" accept="image/*" @change="handleSlipUpload" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" :disabled="uploading">
                     <div class="glass-panel p-4 rounded-xl border-dashed border-2 border-gray-700 group-hover:border-blue-500 transition flex flex-col items-center justify-center gap-2 h-32">
@@ -63,16 +61,12 @@
                         <span class="text-[10px] text-gray-400 font-bold" x-text="uploading ? 'Uploading...' : 'Tap to Upload Receipt'"></span>
                     </div>
                 </div>
-                <p class="text-[9px] text-center text-gray-600">
-                    Dashboard unlocks immediately after upload.<br>False receipts will result in a permanent ban.
-                </p>
             </div>
-            
             <button @click="logout()" class="text-xs text-red-500 font-bold hover:text-red-400 mt-4">Sign Out</button>
         </div>
     </div>
 
-    <!-- MAIN DASHBOARD (Protected) -->
+    <!-- MAIN APP -->
     <div x-show="!loading && (subscriptionState === 'active' || subscriptionState === 'trial' || subscriptionState === 'pending')" class="flex-1 flex flex-col max-w-2xl mx-auto w-full border-x border-gray-900 shadow-2xl">
         
         <!-- HEADER -->
@@ -82,100 +76,144 @@
                     <i class="fas fa-robot text-blue-500"></i> CreatorEngine<span class="text-[9px] text-gray-500">AI</span>
                 </h1>
                 <div class="flex items-center gap-2 mt-1">
-                    <span class="w-2 h-2 rounded-full animate-pulse" 
-                          :class="subscriptionState === 'trial' ? 'bg-green-500' : (subscriptionState === 'pending' ? 'bg-yellow-500' : 'bg-blue-500')"></span>
-                    <p class="text-[9px] font-bold uppercase tracking-wider" 
-                       :class="subscriptionState === 'trial' ? 'text-green-400' : (subscriptionState === 'pending' ? 'text-yellow-400' : 'text-blue-400')"
-                       x-text="getStatusText()">
-                    </p>
+                    <span class="w-2 h-2 rounded-full animate-pulse" :class="subscriptionState === 'trial' ? 'bg-green-500' : 'bg-blue-500'"></span>
+                    <p class="text-[9px] font-bold uppercase tracking-wider text-gray-400" x-text="getStatusText()"></p>
                 </div>
             </div>
-            <button @click="logout()" class="text-[10px] bg-gray-900 border border-gray-800 px-3 py-1 rounded text-gray-400">Logout</button>
+            <div class="flex gap-2">
+                <button x-show="step > 1" @click="reset()" class="text-[10px] bg-gray-900 border border-gray-800 px-3 py-1 rounded text-gray-400">New</button>
+                <button @click="logout()" class="text-[10px] text-red-400 hover:text-white px-2">Logout</button>
+            </div>
         </div>
 
-        <!-- APP CONTENT (Video Creator UI) -->
+        <!-- VIDEO APP -->
         <div class="flex-1 p-4" x-data="videoApp()">
-             
-            <!-- Step 1: Strategy -->
+            
+            <!-- STEP 1: DASHBOARD -->
             <div x-show="step === 1" class="space-y-6 animate-fade-in">
-                <!-- Topic Input -->
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold text-gray-500 uppercase">Video Topic</label>
-                    <textarea x-model="topic" rows="2" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-blue-600 outline-none" placeholder="e.g. History of Sri Lanka..."></textarea>
+                <div class="space-y-3">
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">1. Select Strategy</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div @click="mode = 'quick'" class="mode-card bg-gray-900 p-4 rounded-xl" :class="{'selected': mode === 'quick'}">
+                            <div class="text-2xl mb-2">🚀</div>
+                            <h3 class="font-bold text-sm text-white">Quick Mode</h3>
+                            <p class="text-[10px] text-gray-400 mt-1">AI Voice (Traffic).</p>
+                        </div>
+                        <div @click="mode = 'creator'" class="mode-card bg-gray-900 p-4 rounded-xl" :class="{'selected': mode === 'creator'}">
+                            <div class="text-2xl mb-2">💰</div>
+                            <h3 class="font-bold text-sm text-white">Money Mode</h3>
+                            <p class="text-[10px] text-green-400 mt-1">Your Voice (AdSense).</p>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Generate Button -->
+                <div class="space-y-3">
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">2. Video Topic</label>
+                    <textarea x-model="topic" rows="2" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-medium text-white transition" placeholder="e.g. 5 Crazy Facts about Dubai..."></textarea>
+                </div>
+
                 <button @click="generateScript()" :disabled="aiLoading" 
-                        class="w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg">
-                    <span x-show="!aiLoading">CREATE VIDEO <i class="fas fa-magic ml-1"></i></span>
-                    <span x-show="aiLoading"><i class="fas fa-circle-notch fa-spin"></i> Processing...</span>
+                        class="w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 transition disabled:opacity-50 shadow-lg">
+                    <span x-show="!aiLoading">ENTER STUDIO <i class="fas fa-arrow-right"></i></span>
+                    <span x-show="aiLoading"><i class="fas fa-circle-notch fa-spin"></i> Planning Video...</span>
                 </button>
             </div>
 
-            <!-- Step 2: Editor -->
-            <div x-show="step === 2" class="space-y-4">
-                 <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-xs font-bold text-white">Scene Editor</h3>
-                    <button @click="reset()" class="text-[10px] text-red-400">Reset</button>
-                </div>
+            <!-- STEP 2: STUDIO EDITOR -->
+            <div x-show="step === 2" class="space-y-6">
                 
+                <!-- Audio Mixer -->
+                <div class="glass-panel p-3 rounded-xl border border-gray-700/50 flex flex-col gap-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase">🎚️ Audio Mixer</span>
+                        <label class="cursor-pointer bg-gray-800 text-white text-[9px] font-bold px-2 py-1 rounded hover:bg-gray-700">
+                            <i class="fas fa-upload"></i> Upload Music
+                            <input type="file" class="hidden" accept="audio/*" @change="handleMusicUpload">
+                        </label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[9px] text-gray-500">Voice Vol</label>
+                            <input type="range" x-model="voiceVol" min="0.1" max="1" step="0.1" class="range-slider">
+                        </div>
+                        <div>
+                            <label class="text-[9px] text-gray-500">Music Vol</label>
+                            <input type="range" x-model="musicVol" min="0.05" max="0.5" step="0.05" class="range-slider">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scene List -->
                 <template x-for="(scene, index) in scenes" :key="index">
-                    <div class="glass-panel p-3 rounded-xl border-l-2" :style="`border-left-color: ${scene.color}`">
-                        <p class="text-[10px] text-gray-400 mb-2 uppercase font-bold" x-text="'Scene ' + (index+1)"></p>
-                        <textarea x-model="scene.text" rows="2" class="w-full bg-transparent text-sm text-white border-none outline-none resize-none mb-2"></textarea>
-                        
-                        <!-- File Upload -->
-                        <div class="relative w-full h-20 bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden border border-gray-800" @click="$refs['f'+index].click()">
-                            <img x-show="scene.media_url" :src="scene.media_url" class="w-full h-full object-cover">
-                            <div x-show="!scene.media_url" class="text-center">
-                                <i class="fas fa-image text-gray-600"></i>
-                                <span class="text-[9px] block text-gray-500">Tap to Add Image</span>
+                    <div class="glass-panel rounded-xl p-4 border-l-4 relative" :style="`border-left-color: ${scene.color}`">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-[10px] font-bold uppercase tracking-wider" :style="`color: ${scene.color}`" x-text="'SCENE ' + (index + 1)"></span>
+                        </div>
+
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <!-- Visual Upload -->
+                            <div class="w-full md:w-32 h-32 rounded-lg relative flex-shrink-0 bg-gray-900 flex items-center justify-center border border-gray-700 overflow-hidden" 
+                                 @click="$refs['file'+index].click()">
+                                <img x-show="scene.media_url" :src="scene.media_url" class="w-full h-full object-cover">
+                                <div x-show="!scene.media_url" class="text-center p-2">
+                                    <i class="fas fa-cloud-upload-alt text-blue-500 text-xl mb-1"></i>
+                                    <p class="text-[9px] text-gray-400 font-bold leading-tight">Upload<br>Visual</p>
+                                </div>
+                                <input :x-ref="'file'+index" type="file" class="hidden" accept="image/*" @change="handleUpload($event, index)">
                             </div>
-                            <input :x-ref="'f'+index" type="file" class="hidden" accept="image/*" @change="handleUpload($event, index)">
+
+                            <!-- Controls -->
+                            <div class="flex-1 space-y-3">
+                                <textarea x-model="scene.text" rows="2" class="w-full bg-transparent border-b border-gray-700 text-sm text-white focus:border-blue-500 outline-none resize-none pt-2 leading-relaxed"></textarea>
+                                
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div><label class="text-[8px] text-gray-500 uppercase">Duration</label><input type="number" x-model="scene.duration" class="w-full bg-gray-900 border border-gray-800 rounded px-2 py-1 text-[10px] text-white"></div>
+                                    <div><label class="text-[8px] text-gray-500 uppercase">Color</label><input type="color" x-model="scene.color" class="w-full h-6 bg-transparent border-none cursor-pointer"></div>
+                                </div>
+
+                                <!-- Recording Controls -->
+                                <div x-show="mode === 'creator'" class="bg-gray-900/50 p-2 rounded-lg flex items-center justify-between border border-gray-800">
+                                    <div class="text-[9px] text-gray-500">Record Voice</div>
+                                    <div class="flex items-center gap-3">
+                                        <div x-show="scene.recDuration > 0" class="text-[9px] text-green-400 font-bold" x-text="scene.recDuration + 's'"></div>
+                                        <button @mousedown="startRecording(index)" @mouseup="stopRecording(index)" @touchstart="startRecording(index)" @touchend="stopRecording(index)"
+                                                class="w-8 h-8 rounded-full flex items-center justify-center transition border border-gray-700"
+                                                :class="recordingIndex === index ? 'recording-pulse' : 'bg-gray-800 text-red-500'">
+                                            <i class="fas" :class="recordingIndex === index ? 'fa-stop' : 'fa-microphone'"></i>
+                                        </button>
+                                        <button x-show="scene.audio_blob" @click="playRecording(index)" class="text-green-400 text-xs hover:text-green-300"><i class="fas fa-play"></i></button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </template>
 
-                <button @click="startRendering()" class="w-full py-3 bg-green-600 text-white font-bold rounded-xl text-xs uppercase tracking-widest shadow-green-900/20 shadow-lg">
-                    RENDER FINAL VIDEO <i class="fas fa-film ml-2"></i>
+                <button @click="startRendering()" class="w-full py-4 rounded-xl font-black text-white shadow-2xl flex items-center justify-center gap-3 bg-green-600 hover:bg-green-500">
+                    RENDER FINAL VIDEO <i class="fas fa-file-export"></i>
                 </button>
             </div>
 
-            <!-- Step 3: Result -->
-            <div x-show="step === 3" class="flex flex-col items-center gap-4">
+            <!-- STEP 3: RESULT -->
+            <div x-show="step === 3" class="flex flex-col items-center gap-4 animate-fade-in">
                  <div class="w-full max-w-sm rounded-xl overflow-hidden border border-gray-800 shadow-2xl bg-black aspect-[9/16] relative">
                      <video :src="videoURL" controls class="w-full h-full object-cover"></video>
                  </div>
+                 <a :href="videoURL" download="viral_short.mp4" class="w-full bg-blue-600 text-white py-3 rounded-xl text-center font-bold text-xs uppercase shadow-lg hover:bg-blue-500 transition">Download MP4 ⬇️</a>
                  
-                 <a :href="videoURL" download="viral_short.mp4" class="w-full bg-blue-600 text-white py-3 rounded-xl text-center font-bold text-xs uppercase shadow-lg hover:bg-blue-500 transition">
-                    Download MP4 (High Quality) ⬇️
-                 </a>
-                 
-                 <!-- SEO Box -->
+                 <!-- SEO -->
                  <div class="w-full glass-panel p-4 rounded-xl space-y-3">
-                    <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-bold text-gray-400">Viral Title</span>
-                        <button @click="navigator.clipboard.writeText(generatedTitle)" class="text-[9px] text-blue-400 hover:text-white">Copy</button>
-                    </div>
+                    <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-gray-400">Viral Title</span><button @click="navigator.clipboard.writeText(generatedTitle)" class="text-[9px] text-blue-400">Copy</button></div>
                     <div class="bg-gray-900 p-2 rounded text-xs select-all border border-gray-800" x-text="generatedTitle"></div>
-                    
-                    <div class="flex justify-between items-center">
-                        <span class="text-[10px] font-bold text-gray-400">Description</span>
-                        <button @click="navigator.clipboard.writeText(generatedDescription)" class="text-[9px] text-blue-400 hover:text-white">Copy</button>
-                    </div>
+                    <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-gray-400">Description</span><button @click="navigator.clipboard.writeText(generatedDescription)" class="text-[9px] text-blue-400">Copy</button></div>
                     <div class="bg-gray-900 p-2 rounded text-[10px] text-gray-300 h-20 overflow-y-auto select-all border border-gray-800" x-text="generatedDescription"></div>
                  </div>
-
-                 <button @click="reset()" class="text-xs text-gray-500 hover:text-white transition">Create Another</button>
             </div>
-
-            <canvas id="videoCanvas" class="hidden"></canvas>
         </div>
     </div>
 
-    <!-- JAVASCRIPT LOGIC (Standard Script to fix Alpine Loading) -->
+    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyAE88FW3US3aZRn5TLEdXkad-jvak3W4yI",
             authDomain: "sahantechhub.firebaseapp.com",
@@ -186,250 +224,186 @@
             measurementId: "G-JMSXWQ964T"
         };
 
-        // GLOBAL VARIABLES (To hold Firebase Modules)
         let auth, db, storage, functions, onAuthStateChanged, signOut, doc, getDoc, setDoc, updateDoc, serverTimestamp, ref, uploadBytes, getDownloadURL, httpsCallable;
 
-        // MAIN APP COMPONENT
         function app() {
             return {
-                loading: true,
-                user: null,
-                subscriptionState: 'loading', // trial, active, locked, pending
-                uploading: false,
-
+                loading: true, user: null, subscriptionState: 'loading', uploading: false,
                 async initApp() {
-                    // DYNAMICALLY LOAD FIREBASE (Fixes ReferenceErrors)
-                    const appModule = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
-                    const authModule = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
-                    const firestoreModule = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
-                    const storageModule = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js");
-                    const functionsModule = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js");
+                    const appM = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+                    const authM = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
+                    const fireM = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+                    const storM = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js");
+                    const funcM = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js");
 
-                    // Assign to Globals
-                    const fbApp = appModule.initializeApp(firebaseConfig);
-                    auth = authModule.getAuth(fbApp);
-                    db = firestoreModule.getFirestore(fbApp);
-                    storage = storageModule.getStorage(fbApp);
-                    functions = functionsModule.getFunctions(fbApp);
+                    const fbApp = appM.initializeApp(firebaseConfig);
+                    auth = authM.getAuth(fbApp);
+                    db = fireM.getFirestore(fbApp);
+                    storage = storM.getStorage(fbApp);
+                    functions = funcM.getFunctions(fbApp);
                     
-                    onAuthStateChanged = authModule.onAuthStateChanged;
-                    signOut = authModule.signOut;
-                    doc = firestoreModule.doc;
-                    getDoc = firestoreModule.getDoc;
-                    setDoc = firestoreModule.setDoc;
-                    updateDoc = firestoreModule.updateDoc;
-                    serverTimestamp = firestoreModule.serverTimestamp;
-                    ref = storageModule.ref;
-                    uploadBytes = storageModule.uploadBytes;
-                    getDownloadURL = storageModule.getDownloadURL;
-                    httpsCallable = functionsModule.httpsCallable;
+                    onAuthStateChanged = authM.onAuthStateChanged;
+                    signOut = authM.signOut;
+                    doc = fireM.doc; getDoc = fireM.getDoc; setDoc = fireM.setDoc; updateDoc = fireM.updateDoc; serverTimestamp = fireM.serverTimestamp;
+                    ref = storM.ref; uploadBytes = storM.uploadBytes; getDownloadURL = storM.getDownloadURL;
+                    httpsCallable = funcM.httpsCallable;
 
-                    // Start Auth Listener
                     onAuthStateChanged(auth, async (u) => {
-                        if (!u) {
-                            window.location.href = "index.html";
-                            return;
-                        }
+                        if (!u) { window.location.href = "index.html"; return; }
                         this.user = u;
                         await this.checkSubscription(u);
                     });
                 },
-
                 async checkSubscription(user) {
-                    const userRef = doc(db, "users", user.uid);
-                    const snap = await getDoc(userRef);
-                    
+                    const snap = await getDoc(doc(db, "users", user.uid));
                     if (!snap.exists()) {
-                        // NEW USER: Start 24h Trial
-                        await setDoc(userRef, {
-                            email: user.email,
-                            trial_start: serverTimestamp(),
-                            status: 'trial',
-                            created_at: serverTimestamp()
-                        });
+                        await setDoc(doc(db, "users", user.uid), { email: user.email, trial_start: serverTimestamp(), status: 'trial' });
                         this.subscriptionState = 'trial';
                     } else {
                         const data = snap.data();
-                        
                         if (data.status === 'active' || data.status === 'pending') {
                             this.subscriptionState = data.status;
                         } else {
                             const now = Date.now();
-                            const startTime = data.trial_start ? data.trial_start.toMillis() : now;
-                            const hoursElapsed = (now - startTime) / (1000 * 60 * 60);
-                            
-                            if (hoursElapsed > 24) {
-                                this.subscriptionState = 'locked';
-                            } else {
-                                this.subscriptionState = 'trial';
-                            }
+                            const start = data.trial_start ? data.trial_start.toMillis() : now;
+                            this.subscriptionState = (now - start) > (24*60*60*1000) ? 'locked' : 'trial';
                         }
                     }
                     this.loading = false;
                 },
-
                 getStatusText() {
                     if (this.subscriptionState === 'trial') return '24H Free Trial';
                     if (this.subscriptionState === 'active') return 'Pro Plan';
-                    if (this.subscriptionState === 'pending') return 'Reviewing Payment';
-                    return '';
+                    return 'Pending';
                 },
-
                 async handleSlipUpload(e) {
                     const file = e.target.files[0];
                     if (!file) return;
-                    
                     this.uploading = true;
                     try {
-                        const path = `slips/${this.user.uid}/${Date.now()}_${file.name}`;
-                        const storageRef = ref(storage, path);
-                        await uploadBytes(storageRef, file);
-                        const url = await getDownloadURL(storageRef);
-
-                        await updateDoc(doc(db, "users", this.user.uid), {
-                            status: 'pending',
-                            slip_url: url,
-                            slip_uploaded_at: serverTimestamp()
-                        });
-
+                        const r = ref(storage, `slips/${this.user.uid}/${Date.now()}_${file.name}`);
+                        await uploadBytes(r, file);
+                        const url = await getDownloadURL(r);
+                        await updateDoc(doc(db, "users", this.user.uid), { status: 'pending', slip_url: url });
                         this.subscriptionState = 'pending';
-                        alert("Receipt Uploaded! Dashboard Unlocked.");
-                    } catch (err) {
-                        console.error(err);
-                        alert("Upload failed. Please try again.");
-                    }
+                        alert("Receipt Uploaded!");
+                    } catch (err) { alert("Upload failed"); }
                     this.uploading = false;
                 },
-
-                logout() {
-                    signOut(auth).then(() => window.location.href = "index.html");
-                }
+                logout() { signOut(auth).then(() => window.location.href = "index.html"); }
             }
         }
 
-        // VIDEO EDITOR LOGIC (Cloud-Connected)
         function videoApp() {
             return {
-                step: 1, topic: '', scenes: [], aiLoading: false, videoURL: null,
+                step: 1, mode: 'quick', topic: '', scenes: [], aiLoading: false, videoURL: null,
+                generatedTitle: '', generatedDescription: '',
+                voiceVol: 1.0, musicVol: 0.15, recordingIndex: null, recStartTime: 0,
                 
-                // SEO Variables
-                generatedTitle: '', 
-                generatedDescription: '',
-
                 async generateScript() {
-                    if(!this.topic) return alert("Please enter a topic");
+                    if(!this.topic) return alert("Enter a topic");
                     this.aiLoading = true;
-                    
                     try {
-                        console.log("Calling Cloud Function...");
-                        
-                        // 1. CALL THE BACKEND (Hidden Logic)
-                        const generateFn = httpsCallable(functions, 'generateVideoScript');
-                        
-                        const result = await generateFn({ 
-                            topic: this.topic,
-                            country: 'USA'
-                        });
-
-                        const data = result.data;
-                        
-                        // 2. PROCESS SCENES
+                        const fn = httpsCallable(functions, 'generateVideoScript');
+                        const res = await fn({ topic: this.topic, country: 'USA' });
+                        const data = res.data;
                         this.scenes = data.scenes.map(s => ({
-                            text: s.text, 
-                            color: s.color_hex || '#3B82F6', 
-                            media_url: null, 
-                            duration: 5
+                            text: s.text, color: s.color_hex || '#3B82F6', media_url: null, duration: 5, recDuration: 0, audio_blob: null
                         }));
-
-                        // 3. PROCESS SEO
                         this.generatedTitle = data.metadata.title;
                         this.generatedDescription = data.metadata.description;
-
                         this.step = 2;
-                    } catch(e) { 
-                        console.error(e);
-                        alert("Generation Failed: " + e.message); 
-                    }
+                    } catch(e) { alert("Error: " + e.message); }
                     this.aiLoading = false;
                 },
-                
+
                 handleUpload(e, i) {
                     const file = e.target.files[0];
                     if(file) this.scenes[i].media_url = URL.createObjectURL(file);
                 },
 
-                reset() { 
-                    this.step = 1; this.scenes = []; this.videoURL = null; 
-                    this.generatedTitle = ''; this.generatedDescription = '';
+                // Audio Logic
+                handleMusicUpload(e) {
+                    // Logic to store music file for upload later
+                    console.log("Music selected");
                 },
-                
+
+                async startRecording(i) {
+                    this.recordingIndex = i;
+                    this.recStartTime = Date.now();
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        this.scenes[i].mediaRecorder = new MediaRecorder(stream);
+                        this.scenes[i].chunks = [];
+                        this.scenes[i].mediaRecorder.ondataavailable = e => this.scenes[i].chunks.push(e.data);
+                        this.scenes[i].mediaRecorder.start();
+                    } catch(e) { alert("Mic Error"); }
+                },
+
+                stopRecording(i) {
+                    if(this.scenes[i].mediaRecorder) {
+                        this.scenes[i].mediaRecorder.stop();
+                        this.scenes[i].mediaRecorder.onstop = () => {
+                            const blob = new Blob(this.scenes[i].chunks, { type: 'audio/webm' });
+                            this.scenes[i].audio_blob = blob;
+                            this.scenes[i].recDuration = ((Date.now() - this.recStartTime)/1000).toFixed(1);
+                            this.recordingIndex = null;
+                        };
+                    }
+                },
+
+                playRecording(i) {
+                    if(this.scenes[i].audio_blob) new Audio(URL.createObjectURL(this.scenes[i].audio_blob)).play();
+                },
+
+                playGuide(text) {
+                    window.speechSynthesis.cancel();
+                    const u = new SpeechSynthesisUtterance(text);
+                    u.lang = "en-US";
+                    window.speechSynthesis.speak(u);
+                },
+
+                reset() { this.step = 1; this.scenes = []; this.videoURL = null; },
+
                 async startRendering() {
-                    // YOUR CLOUD FACTORY URL
+                    // YOUR CLOUD RUN URL
                     const CLOUD_RUN_URL = "https://video-renderer-605792804808.us-central1.run.app/render"; 
 
-                    // Validation
-                    const missingImgs = this.scenes.some(s => !s.media_url);
-                    if(missingImgs) return alert("⚠️ Please upload images for all scenes!");
+                    const missing = this.scenes.some(s => !s.media_url);
+                    if(missing) return alert("Upload visuals!");
 
-                    // Access the parent 'app' scope to set global loading
-                    // We cheat a bit here to access parent x-data
-                    document.querySelector('[x-data]').__x.$data.loading = true; 
+                    document.querySelector('[x-data]').__x.$data.loading = true;
                     
                     try {
                         const token = await auth.currentUser.getIdToken();
-                        const scenesPayload = [];
+                        const payload = [];
 
-                        // 1. UPLOAD IMAGES TO FIREBASE STORAGE
                         for (let i = 0; i < this.scenes.length; i++) {
                             const s = this.scenes[i];
-                            let storagePath = null;
-
+                            let imgPath = null;
                             if (s.media_url) {
-                                // Convert blob URL back to Blob
                                 const blob = await fetch(s.media_url).then(r => r.blob());
-                                const filename = `temp_uploads/${auth.currentUser.uid}/${Date.now()}_scene_${i}.jpg`;
-                                const storageRef = ref(storage, filename);
-                                
-                                console.log(`Uploading Scene ${i+1}...`);
-                                await uploadBytes(storageRef, blob);
-                                storagePath = filename; // We send the path to the server
+                                const fname = `temp_uploads/${auth.currentUser.uid}/${Date.now()}_img_${i}.jpg`;
+                                const r = ref(storage, fname);
+                                await uploadBytes(r, blob);
+                                imgPath = fname;
                             }
-
-                            scenesPayload.push({
-                                text: s.text,
-                                color: s.color,
-                                storagePath: storagePath
-                            });
+                            // Note: We are not uploading audio yet in Phase 5, just Images + Text
+                            payload.push({ text: s.text, color: s.color, storagePath: imgPath });
                         }
 
-                        // 2. CALL CLOUD FACTORY
-                        console.log("Sending to Cloud Renderer...");
-                        const response = await fetch(CLOUD_RUN_URL, {
+                        const res = await fetch(CLOUD_RUN_URL, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                                topic: this.topic,
-                                scenes: scenesPayload
-                            })
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({ topic: this.topic, scenes: payload })
                         });
 
-                        if (!response.ok) throw new Error("Rendering Failed on Server");
-
-                        const data = await response.json();
-                        
-                        // 3. SUCCESS
+                        if (!res.ok) throw new Error("Server Error");
+                        const data = await res.json();
                         this.videoURL = data.url;
                         this.step = 3;
 
-                    } catch (e) {
-                        console.error(e);
-                        alert("Render Error: " + e.message);
-                    }
-                    
-                    // Stop Global Loading
+                    } catch (e) { alert("Error: " + e.message); }
                     document.querySelector('[x-data]').__x.$data.loading = false;
                 }
             }
