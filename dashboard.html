@@ -109,7 +109,7 @@
                     </div>
                 </div>
 
-                <!-- 2. Target Audience (RESTORED) -->
+                <!-- 2. Target Audience -->
                 <div class="space-y-3">
                     <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">2. Target Audience</label>
                     <select x-model="targetCountry" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none">
@@ -122,7 +122,7 @@
                     </select>
                 </div>
 
-                <!-- 3. Video Format (RESTORED) -->
+                <!-- 3. Video Format -->
                 <div class="space-y-3">
                     <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">3. Video Format</label>
                     <div class="flex gap-3">
@@ -139,8 +139,9 @@
                 <div class="space-y-3">
                     <div class="flex justify-between items-end">
                         <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">4. Video Topic</label>
-                        <button @click="generateTrendingTopic()" :disabled="aiLoading" class="text-[10px] bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-500 transition">
-                            <i class="fas fa-bolt"></i> Auto-Find Trend
+                        <button @click="generateTrendingTopic()" :disabled="trendLoading" class="text-[10px] bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-500 transition flex items-center gap-1">
+                            <i class="fas" :class="trendLoading ? 'fa-circle-notch fa-spin' : 'fa-bolt'"></i>
+                            <span x-text="trendLoading ? 'Searching...' : 'Auto-Find Trend'"></span>
                         </button>
                     </div>
                     <textarea x-model="topic" rows="2" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-medium text-white transition" placeholder="e.g. 5 Crazy Facts about Dubai..."></textarea>
@@ -336,14 +337,22 @@
         function videoApp() {
             return {
                 step: 1, mode: 'quick', format: '9:16', targetCountry: 'USA', topic: '', 
-                scenes: [], aiLoading: false, videoURL: null,
+                scenes: [], aiLoading: false, videoURL: null, trendLoading: false,
                 generatedTitle: '', generatedDescription: '',
                 voiceVol: 1.0, musicVol: 0.15, recordingIndex: null, recStartTime: 0,
                 
                 async generateTrendingTopic() {
-                    // Simple placeholder for trending logic (Future: Call a Cloud Function)
-                    const topics = ["5 Crazy Facts About Elon Musk", "Why Dubai is Sinking", "The Secret of pyramids"];
-                    this.topic = topics[Math.floor(Math.random() * topics.length)];
+                    this.trendLoading = true;
+                    try {
+                        const fn = httpsCallable(functions, 'findTrendingTopic');
+                        const res = await fn({ country: this.targetCountry });
+                        this.topic = res.data.topic;
+                    } catch(e) {
+                        alert("Trend Error: " + e.message);
+                        // Fallback
+                        this.topic = "5 Crazy Facts About " + this.targetCountry;
+                    }
+                    this.trendLoading = false;
                 },
 
                 async generateScript() {
@@ -351,7 +360,6 @@
                     this.aiLoading = true;
                     try {
                         const fn = httpsCallable(functions, 'generateVideoScript');
-                        // Pass ALL parameters to the backend
                         const res = await fn({ 
                             topic: this.topic, 
                             country: this.targetCountry 
