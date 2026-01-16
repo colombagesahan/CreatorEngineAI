@@ -1,128 +1,263 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" oncontextmenu="return false">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CreatorEngineAI - Studio</title>
+    
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+
     <style>
-        body { font-family: 'Montserrat', sans-serif; background: #050505; color: white; overflow-x: hidden; }
+        body { font-family: 'Montserrat', sans-serif; background: #050505; color: white; overflow-x: hidden; user-select: none; -webkit-user-select: none; }
         .glass-panel { background: rgba(20, 20, 35, 0.95); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 10px 40px -10px rgba(0,0,0,0.8); }
+        .mode-card { transition: all 0.3s ease; border: 2px solid transparent; cursor: pointer; }
+        .mode-card.selected { border-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
         .recording-pulse { animation: pulse-red 1.5s infinite; background-color: #ef4444 !important; }
-        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .range-slider { -webkit-appearance: none; width: 100%; height: 4px; background: #374151; border-radius: 2px; }
         .range-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #3B82F6; border-radius: 50%; cursor: pointer; }
+        .anim-select { background-color: #111827; color: white; border: 1px solid #374151; font-size: 10px; padding: 2px 5px; border-radius: 4px; outline: none; }
+        .upload-dashed { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='8' ry='8' stroke='%233B82F6' stroke-width='2' stroke-dasharray='6%2c 14' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e"); }
         [x-cloak] { display: none !important; }
     </style>
+
+    <!-- SECURITY SCRIPT: PREVENT STEALING -->
+    <script>
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.onkeydown = function(e) {
+            if(e.keyCode == 123) { return false; } // F12
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { return false; } // Ctrl+Shift+I
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { return false; } // Ctrl+Shift+C
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { return false; } // Ctrl+Shift+J
+            if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { return false; } // Ctrl+U
+        }
+    </script>
 </head>
 <body x-data="mainApp()" x-init="initApp()" class="min-h-screen flex flex-col relative" x-cloak>
 
-    <!-- LOADING -->
+    <!-- LOADING OVERLAY -->
     <div x-show="loading" class="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center gap-4">
         <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest animate-pulse">Loading...</p>
+        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest animate-pulse">Loading Engine...</p>
     </div>
 
     <!-- PAYMENT WALL -->
     <div x-show="!loading && subscriptionState === 'locked'" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-start p-6 overflow-y-auto">
         <div class="w-full max-w-sm space-y-6 mt-10">
-            <div class="text-center"><i class="fas fa-lock text-4xl text-red-500 mb-4"></i><h2 class="text-xl font-black text-white">Trial Expired</h2></div>
+            <div class="text-center">
+                <i class="fas fa-lock text-4xl text-red-500 mb-4"></i>
+                <h2 class="text-xl font-black text-white">Trial Expired</h2>
+                <p class="text-xs text-gray-400 mt-2">Upgrade to continue.</p>
+            </div>
             <div class="glass-panel p-5 rounded-xl border-l-4 border-yellow-500 space-y-4">
                 <h3 class="text-xs font-bold text-yellow-500 uppercase tracking-wider">Unlimited Access</h3>
                 <p class="text-2xl font-black">Rs. 1000 <span class="text-xs font-normal text-gray-400">/mo</span></p>
                 <div class="bg-gray-900/50 p-4 rounded-lg space-y-2 text-xs border border-gray-800">
                     <div class="flex justify-between"><span class="text-gray-500">Bank:</span> <span class="font-bold">Commercial Bank</span></div>
+                    <div class="flex justify-between"><span class="text-gray-500">Name:</span> <span class="font-bold text-blue-400">COLOMBAGE SD</span></div>
                     <div class="flex justify-between"><span class="text-gray-500">Account:</span> <span class="font-mono font-bold text-lg text-yellow-400">8750053306</span></div>
                 </div>
             </div>
             <div class="space-y-3">
-                <input type="file" accept="image/*" @change="handleSlipUpload" class="block w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"/>
+                <label class="block text-xs font-bold text-gray-400 uppercase text-center">Upload Bank Slip</label>
+                <div class="relative group">
+                    <input type="file" accept="image/*" @change="handleSlipUpload" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" :disabled="uploading">
+                    <div class="glass-panel p-4 rounded-xl border-dashed border-2 border-gray-700 group-hover:border-blue-500 transition flex flex-col items-center justify-center gap-2 h-32">
+                        <i class="fas" :class="uploading ? 'fa-circle-notch fa-spin text-blue-500' : 'fa-cloud-upload-alt text-gray-500'"></i>
+                        <span class="text-[10px] text-gray-400 font-bold" x-text="uploading ? 'Uploading...' : 'Tap to Upload Receipt'"></span>
+                    </div>
+                </div>
             </div>
-            <button @click="logout()" class="text-xs text-red-500 font-bold mt-4">Sign Out</button>
+            <button @click="logout()" class="text-xs text-red-500 font-bold hover:text-red-400 mt-4">Sign Out</button>
         </div>
     </div>
 
-    <!-- MAIN APP -->
+    <!-- MAIN INTERFACE -->
     <div x-show="!loading && (subscriptionState === 'active' || subscriptionState === 'trial' || subscriptionState === 'pending')" class="flex-1 flex flex-col max-w-2xl mx-auto w-full border-x border-gray-900 shadow-2xl">
-        <div class="p-4 border-b border-gray-800 bg-black/90 backdrop-blur z-30 sticky top-0 flex justify-between items-center">
-            <div><h1 class="text-lg font-black text-white">CreatorEngine<span class="text-[9px] text-gray-500">AI</span></h1></div>
-            <button @click="logout()" class="text-[10px] text-red-400">Logout</button>
+        
+        <!-- HEADER -->
+        <div class="p-5 border-b border-gray-800 bg-black/90 backdrop-blur z-30 sticky top-0 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-black text-white flex items-center gap-2">
+                    <i class="fas fa-crown text-yellow-500"></i> CreatorEngine<span class="text-gray-500 text-xs">AI</span>
+                </h1>
+                <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                    <span class="text-green-400">●</span> <span x-text="getStatusText()"></span>
+                </p>
+            </div>
+            <div class="flex gap-2">
+                <button x-show="step > 1" @click="reset()" class="text-xs text-gray-500 hover:text-white px-3 py-1 border border-gray-800 rounded-lg transition">New</button>
+                <button @click="logout()" class="text-xs text-red-500 hover:text-white px-3 py-1 border border-gray-800 rounded-lg transition">Logout</button>
+            </div>
         </div>
 
-        <div class="flex-1 p-4">
-            <!-- STEP 1 -->
-            <div x-show="step === 1" class="space-y-6">
+        <div class="flex-1 p-6" x-data="videoApp()">
+            
+            <!-- STEP 1: DASHBOARD -->
+            <div x-show="step === 1" class="flex flex-col gap-8 animate-fade-in">
+                
                 <div class="space-y-3">
-                    <label class="text-xs font-bold text-gray-500">1. Strategy</label>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">1. Select Strategy</label>
                     <div class="grid grid-cols-2 gap-4">
-                        <div @click="mode = 'quick'" class="glass-panel p-4 rounded-xl cursor-pointer border-2" :class="mode === 'quick' ? 'border-blue-600' : 'border-transparent'">
-                            <div class="text-2xl mb-2">🚀</div><h3 class="font-bold text-sm">Quick Mode</h3><p class="text-[10px] text-gray-400">AI Voice</p>
+                        <div @click="mode = 'quick'" class="mode-card bg-gray-900 p-4 rounded-xl" :class="{'selected': mode === 'quick'}">
+                            <div class="text-2xl mb-2">🚀</div>
+                            <h3 class="font-bold text-sm text-white">Quick Mode</h3>
+                            <p class="text-[10px] text-gray-400 mt-1">AI Voice (Traffic).</p>
                         </div>
-                        <div @click="mode = 'creator'" class="glass-panel p-4 rounded-xl cursor-pointer border-2" :class="mode === 'creator' ? 'border-blue-600' : 'border-transparent'">
-                            <div class="text-2xl mb-2">💰</div><h3 class="font-bold text-sm">Money Mode</h3><p class="text-[10px] text-green-400">Your Voice</p>
+                        <div @click="mode = 'creator'" class="mode-card bg-gray-900 p-4 rounded-xl" :class="{'selected': mode === 'creator'}">
+                            <div class="text-2xl mb-2">💰</div>
+                            <h3 class="font-bold text-sm text-white">Money Mode</h3>
+                            <p class="text-[10px] text-green-400 mt-1">Your Voice (AdSense).</p>
                         </div>
                     </div>
                 </div>
+
                 <div class="space-y-3">
-                    <label class="text-xs font-bold text-gray-500">2. Target</label>
-                    <select x-model="targetCountry" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-sm text-white"><option value="USA">USA</option><option value="UK">UK</option><option value="Australia">Australia</option></select>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">2. Target Audience</label>
+                    <select x-model="targetCountry" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none">
+                        <option value="USA">🇺🇸 United States (Highest CPM)</option>
+                        <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                        <option value="Australia">🇦🇺 Australia</option>
+                        <option value="Canada">🇨🇦 Canada</option>
+                        <option value="Germany">🇩🇪 Germany</option>
+                        <option value="Global">🌍 Global</option>
+                    </select>
                 </div>
+
                 <div class="space-y-3">
-                    <div class="flex justify-between"><label class="text-xs font-bold text-gray-500">3. Topic</label><button @click="generateTrendingTopic()" :disabled="trendLoading" class="text-[10px] bg-purple-600 px-2 rounded">Auto-Find</button></div>
-                    <textarea x-model="topic" rows="2" class="w-full bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm text-white" placeholder="Topic..."></textarea>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">3. Video Format</label>
+                    <div class="flex gap-3">
+                        <button @click="format = '9:16'" class="flex-1 py-3 rounded-xl border border-gray-800 font-bold text-xs flex items-center justify-center gap-2 transition" :class="format === '9:16' ? 'bg-blue-600 text-white border-blue-500' : 'bg-gray-900 text-gray-400'">
+                            <i class="fas fa-mobile-alt"></i> Shorts (9:16)
+                        </button>
+                        <button @click="format = '16:9'" class="flex-1 py-3 rounded-xl border border-gray-800 font-bold text-xs flex items-center justify-center gap-2 transition" :class="format === '16:9' ? 'bg-blue-600 text-white border-blue-500' : 'bg-gray-900 text-gray-400'">
+                            <i class="fas fa-desktop"></i> YouTube (16:9)
+                        </button>
+                    </div>
                 </div>
-                <button @click="generateScript()" :disabled="aiLoading" class="w-full py-4 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-500">CREATE VIDEO</button>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-end">
+                        <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">4. Topic</label>
+                        <button @click="generateTrendingTopic()" :disabled="trendLoading" class="text-[10px] bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-500 transition flex items-center gap-1">
+                            <i class="fas" :class="trendLoading ? 'fa-circle-notch fa-spin' : 'fa-bolt'"></i>
+                            <span x-text="trendLoading ? 'Searching...' : 'Auto-Find Trend'"></span>
+                        </button>
+                    </div>
+                    <textarea x-model="topic" rows="2" placeholder="e.g. 5 Crazy Facts about Dubai..." 
+                              class="w-full bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm focus:border-blue-500 outline-none font-medium text-white transition"></textarea>
+                </div>
+
+                <button @click="generateScript()" :disabled="aiLoading" 
+                        class="w-full py-4 rounded-xl font-black text-white flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 transition disabled:opacity-50">
+                    <span x-show="!aiLoading">ENTER STUDIO <i class="fas fa-arrow-right"></i></span>
+                    <span x-show="aiLoading"><i class="fas fa-brain fa-spin"></i> Planning Video...</span>
+                </button>
             </div>
 
-            <!-- STEP 2 -->
-            <div x-show="step === 2" class="space-y-6">
+            <!-- STEP 2: STUDIO EDITOR -->
+            <div x-show="step === 2" class="flex flex-col gap-6 animate-fade-in">
+                
                 <div class="glass-panel p-3 rounded-xl border border-gray-700/50 flex flex-col gap-3">
-                    <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-gray-400">AUDIO MIXER</span><label class="cursor-pointer bg-gray-800 text-white text-[9px] px-2 py-1 rounded">Upload Music<input type="file" class="hidden" accept="audio/*" @change="handleMusicUpload"></label></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase">🎚️ Audio Mixer</span>
+                        <div class="flex items-center gap-2">
+                             <label class="cursor-pointer bg-gray-800 text-white text-[9px] font-bold px-2 py-1 rounded hover:bg-gray-700">
+                                <i class="fas fa-upload"></i> Upload Music
+                                <input type="file" class="hidden" accept="audio/*" @change="handleMusicUpload">
+                            </label>
+                            <span x-show="bgMusicFile" class="text-[9px] text-green-400">Loaded</span>
+                        </div>
+                    </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><label class="text-[9px] text-gray-500">Voice</label><input type="range" x-model="voiceVol" min="0" max="1" step="0.1" class="range-slider"></div>
-                        <div><label class="text-[9px] text-gray-500">Music</label><input type="range" x-model="musicVol" min="0" max="1" step="0.1" class="range-slider"></div>
+                        <div><label class="text-[9px] text-gray-500">Voice Vol</label><input type="range" x-model="voiceVol" min="0.1" max="1" step="0.1" class="range-slider"></div>
+                        <div><label class="text-[9px] text-gray-500">Music Vol</label><input type="range" x-model="musicVol" min="0.05" max="0.5" step="0.05" class="range-slider"></div>
                     </div>
                 </div>
 
                 <template x-for="(scene, index) in scenes" :key="index">
-                    <div class="glass-panel rounded-xl p-4 border-l-4" :style="`border-left-color: ${scene.color}`">
-                        <div class="flex justify-between mb-3"><span class="text-[10px] font-bold" x-text="'SCENE ' + (index+1)"></span><button @click="scenes.splice(index, 1)"><i class="fas fa-trash"></i></button></div>
-                        <div class="flex gap-4">
-                            <div class="w-24 h-24 bg-gray-900 rounded-lg relative flex items-center justify-center cursor-pointer overflow-hidden border border-gray-700" @click="$refs['f'+index].click()">
+                    <div class="glass-panel rounded-xl p-4 border-l-4 relative" :style="`border-left-color: ${scene.color}`">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-[10px] font-bold uppercase tracking-wider" :style="`color: ${scene.color}`" x-text="'SCENE ' + (index + 1)"></span>
+                            <button @click="removeScene(index)" class="text-gray-600 hover:text-red-500 transition"><i class="fas fa-trash"></i></button>
+                        </div>
+
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="w-full md:w-32 h-40 rounded-lg relative flex-shrink-0 bg-gray-900 flex items-center justify-center border border-gray-700 overflow-hidden" 
+                                 :class="!scene.media_url ? 'upload-dashed' : ''" @click="$refs['file'+index].click()">
                                 <img x-show="scene.media_url" :src="scene.media_url" class="w-full h-full object-cover">
-                                <i x-show="!scene.media_url" class="fas fa-cloud-upload-alt text-gray-500"></i>
-                                <input :x-ref="'f'+index" type="file" class="hidden" accept="image/*" @change="handleUpload($event, index)">
-                            </div>
-                            <div class="flex-1 space-y-2">
-                                <textarea x-model="scene.text" rows="2" class="w-full bg-transparent border-b border-gray-700 text-sm text-white"></textarea>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <input type="number" x-model="scene.duration" class="bg-gray-900 rounded text-xs px-2 py-1 text-white">
-                                    <input type="color" x-model="scene.color" class="w-full h-6 bg-transparent">
+                                <div x-show="!scene.media_url" class="text-center p-2 cursor-pointer">
+                                    <i class="fas fa-cloud-upload-alt text-blue-500 text-xl mb-1"></i>
+                                    <p class="text-[9px] text-gray-400 font-bold leading-tight">Upload<br>Visual</p>
                                 </div>
-                                <div x-show="mode === 'creator'" class="bg-gray-900 p-2 rounded flex justify-between">
-                                    <button @mousedown="startRecording(index)" @mouseup="stopRecording(index)" class="w-8 h-8 rounded-full bg-red-600 text-white flex items-center justify-center"><i class="fas fa-microphone"></i></button>
-                                    <button x-show="scene.audio_blob" @click="playRecording(index)" class="text-green-400 text-xs">Play</button>
+                                <input :x-ref="'file'+index" type="file" class="hidden" accept="image/*,video/*" @change="handleUpload($event, index)">
+                            </div>
+
+                            <div class="flex-1 space-y-3 relative">
+                                <textarea x-model="scene.text" rows="2" class="w-full bg-transparent border-b border-gray-700 text-sm text-white focus:border-blue-500 outline-none resize-none pt-2 leading-relaxed placeholder-gray-600"></textarea>
+                                
+                                <div class="grid grid-cols-4 gap-2">
+                                    <div><label class="text-[8px] text-gray-500 uppercase">Text Size</label><input type="number" x-model="scene.fontSize" class="w-full bg-gray-900 border border-gray-800 rounded px-2 py-1 text-[10px] text-white"></div>
+                                    <div><label class="text-[8px] text-gray-500 uppercase">Duration(s)</label><input type="number" x-model="scene.duration" class="w-full bg-gray-900 border border-gray-800 rounded px-2 py-1 text-[10px] text-white"></div>
+                                    <div>
+                                        <label class="text-[8px] text-gray-500 uppercase">Animation</label>
+                                        <select x-model="scene.animation" class="anim-select w-full">
+                                            <option value="fade">Fade Up</option>
+                                            <option value="slide">Slide</option>
+                                            <option value="zoom">Zoom</option>
+                                            <option value="typewriter">Type</option>
+                                        </select>
+                                    </div>
+                                    <div><label class="text-[8px] text-gray-500 uppercase">Color</label><input type="color" x-model="scene.color" class="w-full h-6 bg-transparent border-none cursor-pointer"></div>
+                                </div>
+
+                                <div x-show="mode === 'creator'" class="bg-gray-900/50 p-2.5 rounded-xl flex items-center justify-between border border-gray-800">
+                                    <div class="flex items-center gap-2 cursor-pointer group" @click="playGuide(scene.text)">
+                                        <div class="w-8 h-8 rounded-full bg-gray-800 group-hover:bg-blue-600 text-blue-400 group-hover:text-white flex items-center justify-center transition"><i class="fas fa-headphones"></i></div>
+                                        <div class="text-[9px] text-gray-500 group-hover:text-blue-300 leading-tight">Practice<br>Pronunciation</div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div x-show="scene.recDuration > 0" class="text-[9px] text-gray-400"><span class="text-green-400" x-text="scene.recDuration + 's'"></span></div>
+                                        <button @mousedown="startRecording(index)" @mouseup="stopRecording(index)" @touchstart="startRecording(index)" @touchend="stopRecording(index)"
+                                                class="w-10 h-10 rounded-full flex items-center justify-center transition border border-gray-700"
+                                                :class="recordingIndex === index ? 'recording-pulse' : 'bg-gray-800 text-red-500 hover:bg-gray-700'">
+                                            <i class="fas" :class="recordingIndex === index ? 'fa-stop' : 'fa-microphone'"></i>
+                                        </button>
+                                        <button x-show="scene.audio_blob" @click="playRecording(index)" class="text-green-400 text-xs hover:text-green-300 transition"><i class="fas fa-play-circle text-lg"></i></button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </template>
-                <div class="flex gap-2">
-                    <button @click="addScene()" class="flex-1 py-2 bg-gray-900 rounded text-xs text-white">Add Scene</button>
-                    <button @click="startRendering()" class="flex-1 py-2 bg-green-600 rounded text-xs text-white font-bold">RENDER VIDEO</button>
+
+                <div class="flex gap-2 pt-2">
+                    <button @click="addScene()" class="flex-1 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-gray-800 transition flex items-center justify-center gap-2"><i class="fas fa-plus"></i> Add Scene</button>
+                    <button @click="addOutro()" class="flex-1 py-3 bg-gray-900 border border-gray-800 rounded-xl text-xs font-bold text-gray-400 hover:text-green-400 hover:bg-gray-800 transition flex items-center justify-center gap-2"><i class="fas fa-heart"></i> Add Outro</button>
+                </div>
+
+                <div class="sticky bottom-4 z-50 pt-2">
+                    <button @click="startRendering()" class="w-full py-4 rounded-xl font-black text-white shadow-2xl flex items-center justify-center gap-3 bg-green-600 hover:bg-green-500">
+                        RENDER FINAL VIDEO <i class="fas fa-file-export"></i>
+                    </button>
                 </div>
             </div>
 
-            <!-- STEP 3 -->
-            <div x-show="step === 3" class="flex flex-col items-center gap-4">
-                 <video :src="videoURL" controls class="w-full rounded-xl border border-gray-800 shadow-2xl bg-black aspect-[9/16]"></video>
-                 <a :href="videoURL" download="viral_short.webm" class="w-full bg-blue-600 text-white py-3 rounded-xl text-center font-bold text-xs uppercase">Download Video</a>
-                 <button @click="step=1" class="text-xs text-gray-500">New Project</button>
+            <!-- STEP 3: RESULT -->
+            <div x-show="step === 3" class="flex flex-col items-center gap-4 animate-fade-in">
+                 <div class="w-full max-w-sm rounded-xl overflow-hidden border border-gray-800 shadow-2xl bg-black aspect-[9/16] relative">
+                     <video :src="videoURL" controls class="w-full h-full object-cover"></video>
+                 </div>
+                 <a :href="videoURL" download="viral_short.mp4" class="w-full bg-blue-600 text-white py-3 rounded-xl text-center font-bold text-xs uppercase shadow-lg hover:bg-blue-500 transition">
+                    Download MP4 ⬇️
+                 </a>
+                 <button @click="reset()" class="text-xs text-gray-500 hover:text-white flex items-center gap-2"><i class="fas fa-arrow-left"></i> Back to Editor</button>
             </div>
         </div>
         <canvas id="videoCanvas" class="hidden"></canvas>
@@ -227,16 +362,17 @@
                         const fn = httpsCallable(functions, 'generateVideoScript');
                         const res = await fn({ topic: this.topic, country: this.targetCountry });
                         const data = res.data;
-                        this.scenes = data.scenes.map(s => ({ text: s.text, color: s.color_hex || '#3B82F6', media_url: null, duration: 5, recDuration: 0, audio_blob: null }));
+                        this.scenes = data.scenes.map(s => ({ text: s.text, color: s.color_hex || '#3B82F6', media_url: null, duration: 5, fontSize: 80, animation: 'fade', recDuration: 0, audio_blob: null }));
                         this.step = 2;
                     } catch(e) { alert("AI Error. Try different topic."); }
                     this.aiLoading = false;
                 },
 
-                addScene() { this.scenes.push({ text: "", media_url: null, color: '#00CCFF', duration: 5, recDuration: 0, audio_blob: null }); },
+                addScene() { this.scenes.push({ text: "", media_url: null, color: '#00CCFF', fontSize: 80, animation: 'fade', duration: 5, recDuration: 0, audio_blob: null }); },
+                addOutro() { this.scenes.push({ text: "Subscribe 🔔", media_url: null, color: '#00FF99', fontSize: 80, animation: 'zoom', duration: 5, recDuration: 0, audio_blob: null }); },
                 handleUpload(e, i) { if(e.target.files[0]) this.scenes[i].media_url = URL.createObjectURL(e.target.files[0]); },
+                removeScene(i) { this.scenes.splice(i, 1); },
                 
-                // AUDIO MIXER & RECORDER (RESTORED)
                 handleMusicUpload(e) {
                     const file = e.target.files[0];
                     if(file) {
@@ -257,7 +393,7 @@
                         this.scenes[i].chunks = [];
                         this.scenes[i].mediaRecorder.ondataavailable = e => this.scenes[i].chunks.push(e.data);
                         this.scenes[i].mediaRecorder.start();
-                    } catch(e) { alert("Mic Error"); }
+                    } catch(e) { alert("Mic Error: Check Settings"); }
                 },
 
                 stopRecording(i) {
@@ -280,7 +416,8 @@
                     window.speechSynthesis.speak(u);
                 },
 
-                // CLIENT SIDE RENDERER (RESTORED FOR SPEED & FEATURES)
+                reset() { this.step = 1; this.scenes = []; this.videoURL = null; },
+
                 async startRendering() {
                     const canvas = document.getElementById('videoCanvas');
                     canvas.width = 1080; canvas.height = 1920;
@@ -289,7 +426,6 @@
                     this.dest = this.audioCtx.createMediaStreamDestination();
                     
                     const stream = canvas.captureStream(30);
-                    // Add audio tracks
                     if(this.bgMusicBuffer) {
                         const s = this.audioCtx.createBufferSource(); s.buffer = this.bgMusicBuffer; s.loop = true;
                         const g = this.audioCtx.createGain(); g.gain.value = this.musicVol;
@@ -313,12 +449,10 @@
                             const g = this.audioCtx.createGain(); g.gain.value = this.voiceVol;
                             s.connect(g); g.connect(this.dest); s.start(0);
                         } else {
-                            // TTS Fallback
                             const u = new SpeechSynthesisUtterance(scene.text);
                             window.speechSynthesis.speak(u);
                         }
 
-                        // ANIMATION LOOP (Simplified)
                         const frames = scene.duration * 30;
                         for(let f=0; f<frames; f++) {
                             ctx.fillStyle = scene.color; ctx.fillRect(0,0,1080,1920);
@@ -330,7 +464,7 @@
                             ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(50, 1400, 980, 400);
                             ctx.fillStyle = 'white'; ctx.font = '60px Arial'; ctx.textAlign = 'center';
                             ctx.fillText(scene.text, 540, 1600);
-                            await new Promise(r => setTimeout(r, 10)); // Speed control
+                            await new Promise(r => setTimeout(r, 10));
                         }
                     }
 
@@ -345,6 +479,9 @@
                 logout() { signOut(auth).then(() => window.location.href = "index.html"); }
             }
         }
+
+        // Helper
+        function videoApp() { return {}; }
     </script>
 </body>
 </html>
