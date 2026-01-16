@@ -27,7 +27,8 @@
         [x-cloak] { display: none !important; }
     </style>
 </head>
-<body x-data="app()" x-init="initApp()" class="min-h-screen flex flex-col relative" x-cloak>
+<!-- UNIFIED APP STRUCTURE TO PREVENT ERRORS -->
+<body x-data="mainApp()" x-init="initApp()" class="min-h-screen flex flex-col relative" x-cloak>
 
     <!-- LOADING OVERLAY -->
     <div x-show="loading" class="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center gap-4">
@@ -66,7 +67,7 @@
         </div>
     </div>
 
-    <!-- MAIN APP -->
+    <!-- MAIN DASHBOARD -->
     <div x-show="!loading && (subscriptionState === 'active' || subscriptionState === 'trial' || subscriptionState === 'pending')" class="flex-1 flex flex-col max-w-2xl mx-auto w-full border-x border-gray-900 shadow-2xl">
         
         <!-- HEADER -->
@@ -86,8 +87,8 @@
             </div>
         </div>
 
-        <!-- VIDEO APP -->
-        <div class="flex-1 p-4" x-data="videoApp()">
+        <!-- APP CONTENT -->
+        <div class="flex-1 p-4">
             
             <!-- STEP 1: DASHBOARD -->
             <div x-show="step === 1" class="space-y-6 animate-fade-in">
@@ -264,11 +265,34 @@
             measurementId: "G-JMSXWQ964T"
         };
 
+        // GLOBAL VARIABLES
         let auth, db, storage, functions, onAuthStateChanged, signOut, doc, getDoc, setDoc, updateDoc, serverTimestamp, ref, uploadBytes, getDownloadURL, httpsCallable;
 
-        function app() {
+        function mainApp() {
             return {
-                loading: true, user: null, subscriptionState: 'loading', uploading: false,
+                // APP STATE
+                loading: true, 
+                user: null, 
+                subscriptionState: 'loading', 
+                uploading: false,
+                
+                // VIDEO STATE (Merged here to prevent ReferenceError)
+                step: 1, 
+                mode: 'quick', 
+                format: '9:16', 
+                targetCountry: 'USA', 
+                topic: '', 
+                scenes: [], 
+                aiLoading: false, 
+                trendLoading: false, 
+                videoURL: null,
+                generatedTitle: '', 
+                generatedDescription: '',
+                voiceVol: 1.0, 
+                musicVol: 0.15, 
+                recordingIndex: null, 
+                recStartTime: 0,
+
                 async initApp() {
                     const appM = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
                     const authM = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
@@ -294,6 +318,7 @@
                         await this.checkSubscription(u);
                     });
                 },
+
                 async checkSubscription(user) {
                     const snap = await getDoc(doc(db, "users", user.uid));
                     if (!snap.exists()) {
@@ -311,11 +336,13 @@
                     }
                     this.loading = false;
                 },
+
                 getStatusText() {
                     if (this.subscriptionState === 'trial') return '24H Free Trial';
                     if (this.subscriptionState === 'active') return 'Pro Plan';
                     return 'Pending';
                 },
+
                 async handleSlipUpload(e) {
                     const file = e.target.files[0];
                     if (!file) return;
@@ -330,16 +357,8 @@
                     } catch (err) { alert("Upload failed"); }
                     this.uploading = false;
                 },
-                logout() { signOut(auth).then(() => window.location.href = "index.html"); }
-            }
-        }
 
-        function videoApp() {
-            return {
-                step: 1, mode: 'quick', format: '9:16', targetCountry: 'USA', topic: '', 
-                scenes: [], aiLoading: false, videoURL: null, trendLoading: false,
-                generatedTitle: '', generatedDescription: '',
-                voiceVol: 1.0, musicVol: 0.15, recordingIndex: null, recStartTime: 0,
+                // --- VIDEO LOGIC (MOVED INSIDE) ---
                 
                 async generateTrendingTopic() {
                     this.trendLoading = true;
@@ -348,9 +367,9 @@
                         const res = await fn({ country: this.targetCountry });
                         this.topic = res.data.topic;
                     } catch(e) {
-                        alert("Trend Error: " + e.message);
-                        // Fallback
-                        this.topic = "5 Crazy Facts About " + this.targetCountry;
+                        // Keep simple alert for user, check console for details
+                        alert("Could not auto-find. Please type topic.");
+                        console.error(e);
                     }
                     this.trendLoading = false;
                 },
@@ -360,10 +379,7 @@
                     this.aiLoading = true;
                     try {
                         const fn = httpsCallable(functions, 'generateVideoScript');
-                        const res = await fn({ 
-                            topic: this.topic, 
-                            country: this.targetCountry 
-                        });
+                        const res = await fn({ topic: this.topic, country: this.targetCountry });
                         const data = res.data;
                         this.scenes = data.scenes.map(s => ({
                             text: s.text, color: s.color_hex || '#3B82F6', media_url: null, duration: 5, recDuration: 0, audio_blob: null
@@ -371,7 +387,10 @@
                         this.generatedTitle = data.metadata.title;
                         this.generatedDescription = data.metadata.description;
                         this.step = 2;
-                    } catch(e) { alert("Error: " + e.message); }
+                    } catch(e) { 
+                        alert("AI Error. Please try a different topic.");
+                        console.error(e);
+                    }
                     this.aiLoading = false;
                 },
 
@@ -388,9 +407,7 @@
                     if(file) this.scenes[i].media_url = URL.createObjectURL(file);
                 },
 
-                handleMusicUpload(e) {
-                    console.log("Music selected");
-                },
+                handleMusicUpload(e) { console.log("Music selected"); },
 
                 async startRecording(i) {
                     this.recordingIndex = i;
@@ -431,11 +448,10 @@
 
                 async startRendering() {
                     const CLOUD_RUN_URL = "https://video-renderer-605792804808.us-central1.run.app/render"; 
-
                     const missing = this.scenes.some(s => !s.media_url);
                     if(missing) return alert("Upload visuals!");
 
-                    document.querySelector('[x-data]').__x.$data.loading = true;
+                    this.loading = true; // Use global loading
                     
                     try {
                         const token = await auth.currentUser.getIdToken();
@@ -466,8 +482,10 @@
                         this.step = 3;
 
                     } catch (e) { alert("Error: " + e.message); }
-                    document.querySelector('[x-data]').__x.$data.loading = false;
-                }
+                    this.loading = false;
+                },
+
+                logout() { signOut(auth).then(() => window.location.href = "index.html"); }
             }
         }
     </script>
