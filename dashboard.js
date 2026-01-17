@@ -32,7 +32,7 @@ window.videoApp = function() {
     // Video State
     videoURL: null,
     // Note: Exposing API keys in client-side code is risky.
-    apiKey: 'AIzaSyBPoOd87sG2LpICsMk6mi7Aeg9nvKTWq5c',
+    apiKey: 'AIzaSyBYpVANEBfX2W7L1J3bnEMGX-PjqxSAD08',
 
     // FFmpeg State
     ffmpeg: null,
