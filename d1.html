@@ -31,8 +31,7 @@ window.videoApp = function() {
 
     // Video State
     videoURL: null,
-    // Note: Exposing API keys in client-side code is risky.
-    apiKey: 'AIzaSyBYpVANEBfX2W7L1J3bnEMGX-PjqxSAD08',
+    apiKey: 'AIzaSyBYpVANEBfX2W7L1J3bnEMGX-PjqxSAD08', // Note: Exposing API keys is risky.
 
     // FFmpeg State
     ffmpeg: null,
@@ -101,21 +100,24 @@ window.videoApp = function() {
       this.converting = false;
     },
 
-    // --- FFMPEG CONVERSION LOGIC ---
+    // --- FFMPEG CONVERSION LOGIC (FIXED) ---
     async convertToMP4() {
       if (!this.videoURL) return alert("No video to convert!");
       this.converting = true;
       try {
         if (!this.ffmpeg) {
           this.ffmpeg = new FFmpeg();
-          const bUrl = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6';
-          const coreUrl = `${bUrl}/dist/esm/ffmpeg-core.js`;
-          const wasmUrl = `${bUrl}/dist/esm/ffmpeg-core.wasm`;
+          // Explicitly use the Single-Threaded Core (0.12.6)
+          const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+          
           await this.ffmpeg.load({
-            coreURL: await toBlobURL(coreUrl, 'text/javascript'),
-            wasmURL: await toBlobURL(wasmUrl, 'application/wasm'),
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            // Adding workerURL fixes many blob/path issues
+            workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
           });
         }
+        
         await this.ffmpeg.writeFile('input.webm', await fetchFile(this.videoURL));
         await this.ffmpeg.exec([
           '-i', 'input.webm',
@@ -131,7 +133,8 @@ window.videoApp = function() {
         this.mp4URL = URL.createObjectURL(blob);
       } catch (error) {
         console.error("Conversion Error:", error);
-        alert("Conversion failed. Check console for SharedArrayBuffer errors.");
+        // Show the REAL error message now
+        alert("Conversion Error: " + error.message);
       }
       this.converting = false;
     },
@@ -220,7 +223,6 @@ window.videoApp = function() {
           })
         });
         const data = await response.json();
-        // Clean markdown
         let raw = data.candidates[0].content.parts[0].text;
         raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
 
