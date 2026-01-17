@@ -31,7 +31,7 @@ function createVideoApp() {
 
     // Video State
     videoURL: null,
-    apiKey: 'AIzaSyBPoOd87sG2LpICsMk6mi7Aeg9nvKTWq5c',
+    apiKey: 'AIzaSyBYpVANEBfX2W7L1J3bnEMGX-PjqxSAD08',
 
     // FFmpeg State
     ffmpeg: null,
