@@ -15,12 +15,25 @@
         <!-- Header -->
         <div class="flex justify-between items-center border-b border-gray-700 pb-4">
             <h1 class="text-2xl font-black text-blue-500">ADMIN CONTROL</h1>
-            <button id="logoutBtn" class="bg-red-900 text-red-200 px-4 py-2 rounded text-xs font-bold">Logout</button>
+            <div class="flex items-center gap-4">
+                <button onclick="document.getElementById('alertPanel').classList.remove('hidden')" class="bg-yellow-600 px-4 py-2 rounded text-xs font-bold">📢 Send Alert</button>
+                <button id="logoutBtn" class="bg-red-900 text-red-200 px-4 py-2 rounded text-xs font-bold">Logout</button>
+            </div>
         </div>
 
         <!-- Auth Guard Message -->
         <div id="authMessage" class="hidden text-center text-yellow-500 font-bold p-10 bg-gray-800 rounded">
             Checking Permissions...
+        </div>
+
+        <!-- Alert Panel -->
+        <div id="alertPanel" class="hidden bg-gray-800 p-4 rounded-xl border border-yellow-500/30">
+            <h3 class="font-bold text-sm mb-2">Send Global Dashboard Alert</h3>
+            <textarea id="alertText" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" rows="2" placeholder="Enter message..."></textarea>
+            <div class="flex justify-end gap-2 mt-2">
+                <button onclick="document.getElementById('alertPanel').classList.add('hidden')" class="text-gray-400 text-xs">Cancel</button>
+                <button onclick="sendAlert()" class="bg-yellow-500 text-black px-4 py-1 rounded text-xs font-bold">Send Alert</button>
+            </div>
         </div>
 
         <!-- Pending Requests List -->
@@ -46,7 +59,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, query, where, getDocs, doc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, query, where, getDocs, doc, updateDoc, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         // CONFIG
         const firebaseConfig = {
@@ -152,18 +165,28 @@
             }
         }
 
-        // Expose functions to window for HTML buttons
         window.updateStatus = async (uid, newStatus) => {
             if(!confirm(`Mark this user as ${newStatus.toUpperCase()}?`)) return;
             try {
                 await updateDoc(doc(db, "users", uid), { status: newStatus });
-                loadPendingRequests(); // Refresh
+                loadPendingRequests(); 
             } catch (e) { alert("Error: " + e.message); }
         };
 
         window.openImage = (url) => {
             document.getElementById('modalImg').src = url;
             document.getElementById('imageModal').classList.remove('hidden');
+        };
+        
+        window.sendAlert = async () => {
+            const msg = document.getElementById('alertText').value;
+            if(!msg) return;
+            try {
+                await addDoc(collection(db, "alerts"), { message: msg, date: new Date() });
+                alert("Alert Sent!");
+                document.getElementById('alertPanel').classList.add('hidden');
+                document.getElementById('alertText').value = '';
+            } catch(e) { alert("Error sending alert"); }
         };
 
         document.getElementById('logoutBtn').addEventListener('click', () => {
