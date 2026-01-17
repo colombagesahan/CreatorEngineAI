@@ -1,4 +1,4 @@
-const CACHE_NAME = 'creator-engine-v30.8';
+const CACHE_NAME = 'creator-engine-v30.9';
 const urlsToCache = [
   './',
   './index.html',
