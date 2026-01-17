@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CreatorEngine - Admin</title>
     <script>
-        window.tailwind = {
-            config: {
-                theme: { extend: { colors: { clifford: '#da373d', } } }
-            }
-        }
+        window.tailwind = { config: { theme: { extend: { colors: { clifford: '#da373d', } } } } }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -19,7 +15,6 @@
 <body class="p-6">
 
     <div id="app" class="max-w-4xl mx-auto space-y-8">
-        <!-- Header -->
         <div class="flex justify-between items-center border-b border-gray-700 pb-4">
             <h1 class="text-2xl font-black text-blue-500">ADMIN CONTROL</h1>
             <div class="flex items-center gap-4">
@@ -28,12 +23,10 @@
             </div>
         </div>
 
-        <!-- Auth Guard Message -->
         <div id="authMessage" class="hidden text-center text-yellow-500 font-bold p-10 bg-gray-800 rounded">
             Checking Permissions...
         </div>
 
-        <!-- Alert Panel -->
         <div id="alertPanel" class="hidden bg-gray-800 p-4 rounded-xl border border-yellow-500/30">
             <h3 class="font-bold text-sm mb-2">Send Global Dashboard Alert</h3>
             <textarea id="alertText" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" rows="2" placeholder="Enter message..."></textarea>
@@ -43,22 +36,18 @@
             </div>
         </div>
 
-        <!-- Pending Requests List -->
         <div id="dashboard" class="hidden space-y-4">
             <div class="flex items-center gap-2">
                 <h2 class="text-lg font-bold">Pending Approvals</h2>
                 <span id="countBadge" class="bg-yellow-500 text-black text-xs font-black px-2 py-0.5 rounded-full">0</span>
             </div>
 
-            <div id="requestsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Cards will be injected here -->
-            </div>
+            <div id="requestsList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
             
             <p id="emptyState" class="hidden text-gray-500 text-sm text-center py-10">No pending slips to review.</p>
         </div>
     </div>
 
-    <!-- Image Modal -->
     <div id="imageModal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
         <img id="modalImg" src="" class="max-h-screen max-w-full rounded shadow-2xl">
     </div>
@@ -68,7 +57,6 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, query, where, getDocs, doc, updateDoc, orderBy, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyAE88FW3US3aZRn5TLEdXkad-jvak3W4yI",
             authDomain: "sahantechhub.firebaseapp.com",
@@ -83,14 +71,12 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // DOM Elements
         const dashboard = document.getElementById('dashboard');
         const authMessage = document.getElementById('authMessage');
         const list = document.getElementById('requestsList');
         const empty = document.getElementById('emptyState');
         const badge = document.getElementById('countBadge');
 
-        // ADMIN EMAIL (Must match exactly)
         const ADMIN_EMAIL = "colombagesahan@gmail.com";
 
         onAuthStateChanged(auth, async (user) => {
@@ -115,8 +101,7 @@
             list.innerHTML = '<div class="text-blue-500 animate-pulse">Loading...</div>';
             
             try {
-                // ENGINEERING FIX: Removed 'orderBy' to prevent Index Error. 
-                // Sorting is now handled in JavaScript below.
+                // Client-side sort fix
                 const q = query(
                     collection(db, "users"), 
                     where("status", "==", "pending")
@@ -132,20 +117,17 @@
                 }
                 empty.classList.add('hidden');
 
-                // Convert to array for sorting
                 let users = [];
                 snap.forEach(docSnap => {
                     users.push({ id: docSnap.id, ...docSnap.data() });
                 });
 
-                // Client-Side Sort (Newest First)
                 users.sort((a, b) => {
                     const tA = a.slip_uploaded_at ? a.slip_uploaded_at.seconds : 0;
                     const tB = b.slip_uploaded_at ? b.slip_uploaded_at.seconds : 0;
                     return tB - tA;
                 });
 
-                // Render
                 users.forEach(data => {
                     const uid = data.id;
                     const date = data.slip_uploaded_at ? new Date(data.slip_uploaded_at.seconds * 1000).toLocaleString() : 'Just now';
