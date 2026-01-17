@@ -3,11 +3,8 @@ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/fi
 import { getFirestore, doc, getDoc, updateDoc, serverTimestamp, getDocs, collection, query, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-// ESM Imports for FFmpeg (Standardized)
-import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm';
-import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm';
+// Note: FFmpeg is now imported DYNAMICALLY inside functions to prevent blocking the script execution.
 
-// --- CONFIGURATION ---
 const firebaseConfig = {
     apiKey: "AIzaSyAE88FW3US3aZRn5TLEdXkad-jvak3W4yI",
     authDomain: "sahantechhub.firebaseapp.com",
@@ -23,7 +20,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// --- MAIN APPLICATION LOGIC ---
 const videoAppLogic = () => ({
     step: 1, mode: 'quick', targetCountry: 'USA', format: '9:16', topic: '', loading: false, processing: false, progressText: '',
     videoURL: null, 
@@ -43,7 +39,6 @@ const videoAppLogic = () => ({
 
     animState: { img: null, video: null, text: "", color: "#fff", zoom: 1.0, textY: 100, textAlpha: 0, fontSize: 80, animation: 'fade', progress: 0 },
     
-    // User & Trial State
     user: null,
     trialActive: true,
 
@@ -56,7 +51,6 @@ const videoAppLogic = () => ({
             else { cvs.width = 1920; cvs.height = 1080; }
         }
 
-        // Slip Upload Logic
         const slipInput = document.getElementById('slipInput');
         if(slipInput) {
             slipInput.addEventListener('change', (e) => {
@@ -90,14 +84,12 @@ const videoAppLogic = () => ({
         const diffMs = now - created;
         const hoursLeft = 24 - (diffMs / (1000 * 60 * 60));
 
-        // Provisional Unlock Logic (30 Mins)
         let provisionalUnlock = false;
         if (data.status === 'pending' && data.slip_uploaded_at) {
              const slipTime = data.slip_uploaded_at.toDate();
              const slipDiffMins = (now - slipTime) / (1000 * 60);
              if (slipDiffMins >= 30) provisionalUnlock = true;
              else {
-                 // Still waiting logic
                  document.getElementById('lockScreen').classList.remove('hidden');
                  document.getElementById('pendingMessage').classList.remove('hidden');
                  return; 
@@ -119,7 +111,6 @@ const videoAppLogic = () => ({
     },
 
     async checkForAlerts() {
-        // Checks for global alerts
         try {
             const q = query(collection(db, "alerts"), limit(1));
             const snap = await getDocs(q);
@@ -181,12 +172,16 @@ const videoAppLogic = () => ({
         this.mp4URL = null; this.converting = false;
     },
 
-    // --- FFMPEG CONVERSION LOGIC ---
+    // --- FFMPEG CONVERSION LOGIC (DYNAMIC IMPORT) ---
     async convertToMP4() {
         if (!this.videoURL) return alert("No video to convert!");
         this.converting = true;
 
         try {
+            // DYNAMIC IMPORT: Loads FFmpeg only when needed, unblocking initial load
+            const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm');
+            const { fetchFile, toBlobURL } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm');
+
             if (!this.ffmpeg) {
                 this.ffmpeg = new FFmpeg();
                 const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
@@ -217,8 +212,6 @@ const videoAppLogic = () => ({
 
         this.converting = false;
     },
-
-    // --- EXISTING LOGIC ---
 
     async getValidModel() {
         if (this.validModel) return this.validModel;
@@ -394,7 +387,6 @@ const videoAppLogic = () => ({
         const ctx = canvas.getContext('2d');
         const assets = [];
 
-        // 1. PRELOAD ASSETS
         for(let i=0; i<this.scenes.length; i++) {
             this.progressText = `Preparing Scene ${i+1}/${this.scenes.length}`;
             const s = this.scenes[i];
@@ -419,7 +411,6 @@ const videoAppLogic = () => ({
             } catch(e) { assets.push({ type: 'placeholder', el: null }); }
         }
 
-        // 2. SETUP AUDIO
         if(this.bgMusicBuffer && this.useBgMusic) {
             const s = this.audioCtx.createBufferSource();
             s.buffer = this.bgMusicBuffer; s.loop = true;
@@ -429,16 +420,13 @@ const videoAppLogic = () => ({
             this.bgMusicNode = s;
         }
 
-        // 3. SETUP RECORDER
         this.progressText = "Rendering...";
         const canvasStream = canvas.captureStream(30);
         
-        // Audio oscillator to ensure track exists
         const osc = this.audioCtx.createOscillator(); osc.frequency.value = 0; 
         const g = this.audioCtx.createGain(); g.gain.value=0.001; 
         osc.connect(g); g.connect(this.dest); osc.start();
 
-        // WebM Recorder with combined streams
         const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...this.dest.stream.getAudioTracks()]);
         let options = { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 5000000 };
         if (!MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) { options = { mimeType: 'video/webm', videoBitsPerSecond: 5000000 }; }
@@ -450,14 +438,11 @@ const videoAppLogic = () => ({
 
         let isRendering = true;
 
-        // 4. ANIMATION LOOP (Runs continuously)
         const renderFrame = () => {
             if(!isRendering) return;
             
-            // Clear Canvas
             ctx.fillStyle = "black"; ctx.fillRect(0,0, canvas.width, canvas.height);
             
-            // Draw Background (Video or Image)
             if(this.animState.video) {
                  const v = this.animState.video; 
                  const vRatio = v.videoWidth / v.videoHeight; 
@@ -484,12 +469,10 @@ const videoAppLogic = () => ({
                 ctx.fillStyle = grd; ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
             
-            // Vignette
             const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width/3, canvas.width/2, canvas.height/2, canvas.height);
             grad.addColorStop(0, "rgba(0,0,0,0)"); grad.addColorStop(1, "rgba(0,0,0,0.85)"); 
             ctx.fillStyle = grad; ctx.fillRect(0,0, canvas.width, canvas.height);
 
-            // Text Animation State
             if (this.animState.animation === 'slide') { 
                 if(this.animState.textY > 0) this.animState.textY *= 0.9; 
                 this.animState.textAlpha = Math.min(this.animState.textAlpha + 0.05, 1); 
@@ -504,14 +487,12 @@ const videoAppLogic = () => ({
                 this.animState.textY = 0; 
             }
             
-            // Draw Text Box
             ctx.save(); ctx.globalAlpha = this.animState.textAlpha;
             const boxH = canvas.height * 0.25; const boxY = canvas.height - boxH - 50; 
             ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.beginPath(); 
             if(ctx.roundRect) ctx.roundRect(40, boxY, canvas.width - 80, boxH, 30); else ctx.rect(40, boxY, canvas.width - 80, boxH); 
             ctx.fill();
             
-            // Draw Text
             ctx.fillStyle = this.animState.color; 
             ctx.font = `900 ${this.animState.fontSize}px Montserrat, 'Noto Color Emoji'`; 
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -527,11 +508,9 @@ const videoAppLogic = () => ({
         };
         requestAnimationFrame(renderFrame);
 
-        // 5. SEQUENCE CONTROLLER
         for (let i = 0; i < this.scenes.length; i++) {
             const scene = this.scenes[i]; const asset = assets[i];
             
-            // Update State
             if(asset && asset.type === 'video') { 
                 this.animState.video = asset.el; this.animState.img = null; 
                 await asset.el.play(); 
@@ -549,18 +528,15 @@ const videoAppLogic = () => ({
             
             const sceneDur = Math.max(parseFloat(scene.duration) * 1000, 2000); // Min 2 secs
             
-            // Play Audio & Wait
             const p1 = (this.mode === 'creator' && scene.audio_blob) 
                 ? this.playBlobAudio(scene.audio_blob) 
                 : this.playTTS(scene.text, scene.duration);
             
-            // FORCE WAIT for duration even if TTS fails
             await Promise.all([p1, new Promise(r => setTimeout(r, sceneDur))]);
             
             if(asset && asset.type === 'video') asset.el.pause();
         }
 
-        // Finish
         await new Promise(r => setTimeout(r, 2000)); // Outro tail
         isRendering = false;
         
@@ -615,11 +591,10 @@ const videoAppLogic = () => ({
     }
 });
 
-// CRITICAL FIX FOR ALPINEJS: 
-// 1. Expose to Window (The "Hammer" Fix) so Alpine finds it in global scope if timing is off
+// Explicitly define global to ensure Alpine sees it even if timing is off
 window.videoApp = videoAppLogic;
 
-// 2. Try Standard Registration (The "Correct" Fix)
+// Standard Registration
 document.addEventListener('alpine:init', () => {
     Alpine.data('videoApp', videoAppLogic);
 });
