@@ -15,12 +15,7 @@
     
     <!-- Scripts & Styles -->
     <script>
-        // Tailwind Config must be defined before the script loads
-        window.tailwind = {
-            config: {
-                theme: { extend: { colors: { clifford: '#da373d', } } }
-            }
-        }
+        window.tailwind = { config: { theme: { extend: { colors: { clifford: '#da373d', } } } } }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -40,12 +35,12 @@
     <div class="absolute top-0 left-0 w-full h-64 bg-blue-900/20 blur-[100px] pointer-events-none"></div>
     <div class="absolute bottom-0 right-0 w-full h-64 bg-purple-900/20 blur-[100px] pointer-events-none"></div>
 
-    <!-- PWA Install Button (Hidden by default) -->
+    <!-- PWA Install Button -->
     <button id="installAppBtn" class="hidden fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 install-btn">
         <i class="fas fa-download"></i> Install App
     </button>
 
-    <!-- Main Container (Responsive for 250px) -->
+    <!-- Main Container -->
     <div class="w-full max-w-md flex flex-col gap-6 relative z-10">
         
         <!-- Logo Area -->
@@ -58,7 +53,7 @@
             <p class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold">Automated YouTube Empire</p>
         </div>
 
-        <!-- Value Proposition (Sinhala) -->
+        <!-- Value Proposition -->
         <div class="glass-card rounded-2xl p-6 space-y-6">
             <div class="space-y-4">
                 <div class="flex gap-3 items-start">
@@ -134,7 +129,7 @@
 
         const loginBtn = document.getElementById('loginBtn');
 
-        // Login Logic with User Initialization
+        // Login Logic
         loginBtn.addEventListener('click', () => {
             signInWithPopup(auth, provider)
                 .then(async (result) => {
@@ -142,7 +137,6 @@
                     const userRef = doc(db, "users", user.uid);
                     const userSnap = await getDoc(userRef);
 
-                    // If user doesn't exist, create initial trial record
                     if (!userSnap.exists()) {
                         await setDoc(userRef, {
                             email: user.email,
@@ -159,14 +153,13 @@
                 });
         });
 
-        // Auto Redirect if already logged in
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 window.location.href = "dashboard.html";
             }
         });
 
-        // PWA Install Logic
+        // PWA Install
         let deferredPrompt;
         const installBtn = document.getElementById('installAppBtn');
 
@@ -187,7 +180,6 @@
             }
         });
 
-        // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js');
