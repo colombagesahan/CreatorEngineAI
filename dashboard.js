@@ -1,200 +1,111 @@
-// dashboard.js - v30.10 NO BLOCKING IMPORTS
+// 1. IMPORTS (FFmpeg + Alpine)
+import { FFmpeg } from "https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/esm/index.js";
+import { fetchFile, toBlobURL } from "https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js";
+import Alpine from "https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/module.esm.js";
 
-// 1. Define the Global Scope Object immediately
+// --- PROTECTION CODE START ---
+(function(){
+    var allowedDomain = "colombagesahan.github.io"; 
+    // Allow localhost/127.0.0.1 for testing, otherwise block
+    if(window.location.hostname !== allowedDomain && 
+       window.location.hostname !== "127.0.0.1" && 
+       window.location.hostname !== "localhost" &&
+       window.location.hostname !== "") { // Allow empty for file:// testing if needed
+        document.body.innerHTML = "<div style='display:flex;height:100vh;align-items:center;justify-content:center;background:black;color:red;font-family:sans-serif;text-align:center;'><h1>⚠️ THEFT DETECTED</h1></div>";
+        throw new Error("Execution Stopped");
+    }
+})();
+// --- PROTECTION CODE END ---
+
+const origWarn = console.warn;
+console.warn = (...args) => {
+    if (args[0] && typeof args[0] === 'string' && args[0].includes('cdn.tailwindcss.com')) return;
+    origWarn.apply(console, args);
+};
+
+// Expose function globally
 window.videoApp = function() {
     return {
-        // --- DATA STATE ---
-        step: 1, 
-        mode: 'quick', 
-        targetCountry: 'USA', 
-        format: '9:16', 
-        topic: '', 
-        loading: false, 
-        processing: false, 
-        progressText: '',
-        videoURL: null, 
-        apiKey: 'AIzaSyBX8sgQFlSVm1CtOT1PvrMcjHrYGvVQw8M', // WARNING: Public Key
+        step: 1, mode: 'quick', format: '9:16', topic: '', targetCountry: 'USA',
+        loading: false, processing: false, progressText: '',
         
+        // Video State
+        videoURL: null, 
+        apiKey: 'AIzaSyBX8sgQFlSVm1CtOT1PvrMcjHrYGvVQw8M',
+
         // FFmpeg State
         ffmpeg: null,
         converting: false,
         mp4URL: null,
         
-        scenes: [], 
-        audioCtx: null, 
-        dest: null,
-        mediaRecorder: null, 
-        audioChunks: [], 
-        recordingIndex: null, 
-        recStartTime: 0,
-        validModel: null, 
-        bgMusicFile: null, 
-        bgMusicBuffer: null,
+        scenes: [], audioCtx: null, dest: null,
+        mediaRecorder: null, audioChunks: [], recordingIndex: null, recStartTime: 0,
+        validModel: null, bgMusicFile: null, bgMusicBuffer: null,
         
-        voiceVol: 1.0, 
-        musicVol: 0.15, 
-        useBgMusic: false,
-        metadataLoading: false, 
-        generatedTitle: '', 
-        generatedDescription: '',
+        voiceVol: 1.0, musicVol: 0.15, useBgMusic: false,
+        metadataLoading: false, generatedTitle: '', generatedDescription: '',
 
         animState: { img: null, video: null, text: "", color: "#fff", zoom: 1.0, textY: 100, textAlpha: 0, fontSize: 80, animation: 'fade', progress: 0 },
-        
-        user: null,
-        trialActive: true,
-        db: null,
-        auth: null,
-        storage: null,
 
-        // --- INIT ---
-        async init() {
-            // Load Firebase Dynamically
-            await this.initFirebase();
-            
+        init() {
             const cvs = document.getElementById('videoCanvas');
-            if(cvs) {
-                if(this.format === '9:16') { cvs.width = 1080; cvs.height = 1920; }
-                else { cvs.width = 1920; cvs.height = 1080; }
-            }
-
-            const slipInput = document.getElementById('slipInput');
-            if(slipInput) {
-                slipInput.addEventListener('change', (e) => {
-                    const f = e.target.files[0];
-                    if(f) document.getElementById('slipFileName').innerText = f.name;
-                });
-            }
-
-            const submitBtn = document.getElementById('submitSlipBtn');
-            if(submitBtn) {
-                submitBtn.addEventListener('click', () => this.uploadSlip());
-            }
+            if(this.format === '9:16') { cvs.width = 1080; cvs.height = 1920; }
+            else { cvs.width = 1920; cvs.height = 1080; }
         },
 
-        // --- FIREBASE LOGIC (Dynamic) ---
-        async initFirebase() {
+        cleanup() {
+            this.scenes.forEach(s => {
+                if(s.media_url && s.media_url.startsWith('blob:')) URL.revokeObjectURL(s.media_url);
+            });
+            if(this.videoURL) URL.revokeObjectURL(this.videoURL);
+            if(this.mp4URL) URL.revokeObjectURL(this.mp4URL);
+        },
+
+        reset() { 
+            this.cleanup();
+            this.step = 1; this.topic = ''; this.scenes = []; this.bgMusicFile = null; 
+            this.generatedTitle = ''; this.generatedDescription = '';
+            this.mp4URL = null; this.converting = false;
+        },
+
+        // --- FFMPEG CONVERSION LOGIC ---
+        async convertToMP4() {
+            if (!this.videoURL) return alert("No video to convert!");
+            this.converting = true;
+
             try {
-                // Dynamic Imports = Non-blocking!
-                const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
-                const { getAuth, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js");
-                const { getFirestore, doc, getDoc, updateDoc, serverTimestamp, getDocs, collection, query, limit } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
-                const { getStorage, ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js");
-
-                const firebaseConfig = {
-                    apiKey: "AIzaSyAE88FW3US3aZRn5TLEdXkad-jvak3W4yI",
-                    authDomain: "sahantechhub.firebaseapp.com",
-                    projectId: "sahantechhub",
-                    storageBucket: "sahantechhub.firebasestorage.app",
-                    messagingSenderId: "605792804808",
-                    appId: "1:605792804808:web:531be19ce5f6a4a17faafd",
-                    measurementId: "G-JMSXWQ964T"
-                };
-
-                const app = initializeApp(firebaseConfig);
-                this.auth = getAuth(app);
-                this.db = getFirestore(app);
-                this.storage = getStorage(app);
-                
-                // Expose FS methods to this object scope for other functions to use
-                this.fs = { doc, getDoc, updateDoc, serverTimestamp, getDocs, collection, query, limit, ref, uploadBytes, getDownloadURL };
-
-                onAuthStateChanged(this.auth, async (u) => {
-                    if (!u) { window.location.href = "index.html"; return; }
-                    this.user = u;
-                    this.checkTrialStatus(u.uid);
-                    this.checkForAlerts();
-                });
-
-            } catch (e) {
-                console.error("Firebase Init Failed", e);
-            }
-        },
-
-        async checkTrialStatus(uid) {
-            if(!this.db) return;
-            const userRef = this.fs.doc(this.db, "users", uid);
-            const snap = await this.fs.getDoc(userRef);
-            if (!snap.exists()) return;
-
-            const data = snap.data();
-            const now = new Date();
-            const created = data.createdAt ? data.createdAt.toDate() : now;
-            const diffMs = now - created;
-            const hoursLeft = 24 - (diffMs / (1000 * 60 * 60));
-
-            let provisionalUnlock = false;
-            if (data.status === 'pending' && data.slip_uploaded_at) {
-                 const slipTime = data.slip_uploaded_at.toDate();
-                 const slipDiffMins = (now - slipTime) / (1000 * 60);
-                 if (slipDiffMins >= 30) provisionalUnlock = true;
-                 else {
-                     document.getElementById('lockScreen').classList.remove('hidden');
-                     document.getElementById('pendingMessage').classList.remove('hidden');
-                     return; 
-                 }
-            }
-
-            if (data.status === 'active' || provisionalUnlock) {
-                this.trialActive = true;
-                return;
-            }
-
-            if (data.status === 'locked' || (data.status === 'trial' && hoursLeft <= 0)) {
-                document.getElementById('lockScreen').classList.remove('hidden');
-                this.trialActive = false;
-            } else if (data.status === 'trial') {
-                document.getElementById('trialTimer').classList.remove('hidden');
-                document.getElementById('timeLeft').innerText = Math.floor(hoursLeft) + "h " + Math.floor((hoursLeft % 1) * 60) + "m";
-            }
-        },
-
-        async checkForAlerts() {
-            if(!this.db) return;
-            try {
-                const q = this.fs.query(this.fs.collection(this.db, "alerts"), this.fs.limit(1));
-                const snap = await this.fs.getDocs(q);
-                if (!snap.empty) {
-                    const msg = snap.docs[0].data().message;
-                    if (msg) {
-                        const alertModal = document.getElementById('alertModal');
-                        if(alertModal) {
-                            document.getElementById('alertMessage').innerText = msg;
-                            alertModal.classList.remove('hidden');
-                        }
-                    }
+                if (!this.ffmpeg) {
+                    this.ffmpeg = new FFmpeg();
+                    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+                    await this.ffmpeg.load({
+                        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                    });
                 }
-            } catch (e) { console.log("No alerts"); }
-        },
 
-        async uploadSlip() {
-            const file = document.getElementById('slipInput').files[0];
-            if (!file) return alert("Please select an image file.");
-            
-            const btn = document.getElementById('submitSlipBtn');
-            btn.innerText = "Uploading...";
-            btn.disabled = true;
+                await this.ffmpeg.writeFile('input.webm', await fetchFile(this.videoURL));
 
-            try {
-                const storageRef = this.fs.ref(this.storage, `slips/${this.user.uid}_${Date.now()}`);
-                await this.fs.uploadBytes(storageRef, file);
-                const url = await this.fs.getDownloadURL(storageRef);
+                await this.ffmpeg.exec([
+                    '-i', 'input.webm',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast', 
+                    '-pix_fmt', 'yuv420p',
+                    'output.mp4'
+                ]);
 
-                await this.fs.updateDoc(this.fs.doc(this.db, "users", this.user.uid), {
-                    status: 'pending',
-                    slip_url: url,
-                    slip_uploaded_at: this.fs.serverTimestamp()
-                });
+                const data = await this.ffmpeg.readFile('output.mp4');
+                const blob = new Blob([data.buffer], { type: 'video/mp4' });
+                this.mp4URL = URL.createObjectURL(blob);
 
-                document.getElementById('pendingMessage').classList.remove('hidden');
-                btn.innerText = "Submitted";
-                alert("Slip uploaded! Please wait 30 minutes for auto-unlock.");
-            } catch (e) {
-                console.error(e);
-                alert("Upload failed. Try again.");
-                btn.innerText = "Submit & Unlock";
-                btn.disabled = false;
+            } catch (error) {
+                console.error("Conversion Error:", error);
+                alert("Conversion failed. Check console for SharedArrayBuffer errors.");
             }
+
+            this.converting = false;
         },
+
+        // --- EXISTING LOGIC ---
 
         async getValidModel() {
             if (this.validModel) return this.validModel;
@@ -225,10 +136,7 @@ window.videoApp = function() {
         async generateScript() {
             if(!this.topic) return alert("Enter a topic!");
             this.loading = true;
-            
-            const cvs = document.getElementById('videoCanvas');
-            if(this.format === '9:16') { cvs.width = 1080; cvs.height = 1920; }
-            else { cvs.width = 1920; cvs.height = 1080; }
+            this.init(); 
 
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -359,61 +267,6 @@ window.videoApp = function() {
             this.metadataLoading = false;
         },
 
-        cleanup() {
-            this.scenes.forEach(s => {
-                if(s.media_url && s.media_url.startsWith('blob:')) URL.revokeObjectURL(s.media_url);
-            });
-            if(this.videoURL) URL.revokeObjectURL(this.videoURL);
-            if(this.mp4URL) URL.revokeObjectURL(this.mp4URL);
-        },
-
-        reset() { 
-            this.cleanup();
-            this.step = 1; this.topic = ''; this.scenes = []; this.bgMusicFile = null; 
-            this.generatedTitle = ''; this.generatedDescription = '';
-            this.mp4URL = null; this.converting = false;
-        },
-
-        async convertToMP4() {
-            if (!this.videoURL) return alert("No video to convert!");
-            this.converting = true;
-
-            try {
-                // Dynamic Import FFmpeg
-                const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm');
-                const { fetchFile, toBlobURL } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm');
-
-                if (!this.ffmpeg) {
-                    this.ffmpeg = new FFmpeg();
-                    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
-                    await this.ffmpeg.load({
-                        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-                        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                    });
-                }
-
-                await this.ffmpeg.writeFile('input.webm', await fetchFile(this.videoURL));
-
-                await this.ffmpeg.exec([
-                    '-i', 'input.webm',
-                    '-c:v', 'libx264',
-                    '-preset', 'ultrafast', 
-                    '-pix_fmt', 'yuv420p',
-                    'output.mp4'
-                ]);
-
-                const data = await this.ffmpeg.readFile('output.mp4');
-                const blob = new Blob([data.buffer], { type: 'video/mp4' });
-                this.mp4URL = URL.createObjectURL(blob);
-
-            } catch (error) {
-                console.error("Conversion Error:", error);
-                alert("Conversion failed. Check console for SharedArrayBuffer errors.");
-            }
-
-            this.converting = false;
-        },
-
         async startRendering() {
             const missingImgs = this.scenes.some(s => !s.media_url && s.type !== 'outro');
             if(missingImgs) return alert("⚠️ Please upload visuals for all scenes!");
@@ -431,12 +284,8 @@ window.videoApp = function() {
                 try {
                     if(s.media_type === 'video') {
                         const v = document.createElement('video');
-                        v.src = s.media_url; v.muted = true; v.loop = true; v.playsInline = true;
-                        await new Promise((resolve, reject) => { 
-                            v.onloadeddata = resolve; 
-                            v.onerror = reject; 
-                            v.load(); 
-                        });
+                        v.src = s.media_url; v.muted = true; v.loop = true;
+                        await new Promise((resolve, reject) => { v.onloadedmetadata = resolve; v.onerror = reject; v.load(); });
                         assets.push({ type: 'video', el: v });
                     } else {
                         if (!s.media_url) { assets.push({ type: 'placeholder', el: null }); } else {
@@ -460,14 +309,12 @@ window.videoApp = function() {
 
             this.progressText = "Rendering...";
             const canvasStream = canvas.captureStream(30);
-            
-            const osc = this.audioCtx.createOscillator(); osc.frequency.value = 0; 
-            const g = this.audioCtx.createGain(); g.gain.value=0.001; 
-            osc.connect(g); g.connect(this.dest); osc.start();
+            const osc = this.audioCtx.createOscillator(); osc.frequency.value = 0; const g = this.audioCtx.createGain(); g.gain.value=0.001; osc.connect(g); g.connect(this.dest); osc.start();
 
+            // WebM Recorder
             const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...this.dest.stream.getAudioTracks()]);
-            let options = { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 5000000 };
-            if (!MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) { options = { mimeType: 'video/webm', videoBitsPerSecond: 5000000 }; }
+            let options = { mimeType: 'video/webm; codecs=vp9', videoBitsPerSecond: 3500000 };
+            if (!MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) { options = { mimeType: 'video/webm', videoBitsPerSecond: 3500000 }; }
             
             const mediaRecorder = new MediaRecorder(combinedStream, options);
             const chunks = [];
@@ -475,115 +322,69 @@ window.videoApp = function() {
             mediaRecorder.start(100);
 
             let isRendering = true;
-
             const renderFrame = () => {
                 if(!isRendering) return;
-                
-                ctx.fillStyle = "black"; ctx.fillRect(0,0, canvas.width, canvas.height);
-                
-                if(this.animState.video) {
-                     const v = this.animState.video; 
-                     const vRatio = v.videoWidth / v.videoHeight; 
-                     const cRatio = canvas.width / canvas.height;
-                     let dw, dh, dx, dy;
-                     if (vRatio > cRatio) { dh = canvas.height; dw = dh * vRatio; dy = 0; dx = (canvas.width - dw)/2; } 
-                     else { dw = canvas.width; dh = dw / vRatio; dx = 0; dy = (canvas.height - dh)/2; }
-                     ctx.drawImage(v, dx, dy, dw, dh);
-                } else if(this.animState.img) {
-                    ctx.save(); 
-                    const cx = canvas.width/2; const cy = canvas.height/2;
-                    ctx.translate(cx, cy); ctx.scale(this.animState.zoom, this.animState.zoom); ctx.translate(-cx, -cy);
-                    const imgRatio = this.animState.img.width / this.animState.img.height; 
-                    const canvasRatio = canvas.width / canvas.height;
-                    let dw, dh, dx, dy;
-                    if (imgRatio > canvasRatio) { dh = canvas.height; dw = dh * imgRatio; dy = 0; dx = (canvas.width - dw) / 2; } 
-                    else { dw = canvas.width; dh = dw / imgRatio; dx = 0; dy = (canvas.height - dh) / 2; }
-                    ctx.drawImage(this.animState.img, dx, dy, dw, dh); 
-                    ctx.restore(); 
-                    this.animState.zoom += 0.0015;
-                } else {
-                    const grd = ctx.createLinearGradient(0, 0, 0, canvas.height); 
-                    grd.addColorStop(0, "#0f0f1a"); grd.addColorStop(1, "#1a1a2e"); 
-                    ctx.fillStyle = grd; ctx.fillRect(0, 0, canvas.width, canvas.height);
-                }
-                
-                const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width/3, canvas.width/2, canvas.height/2, canvas.height);
-                grad.addColorStop(0, "rgba(0,0,0,0)"); grad.addColorStop(1, "rgba(0,0,0,0.85)"); 
-                ctx.fillStyle = grad; ctx.fillRect(0,0, canvas.width, canvas.height);
+                try {
+                    ctx.fillStyle = "black"; ctx.fillRect(0,0, canvas.width, canvas.height);
+                    if(this.animState.video) {
+                         const v = this.animState.video; const vRatio = v.videoWidth / v.videoHeight; const cRatio = canvas.width / canvas.height;
+                         let dw, dh, dx, dy;
+                         if (vRatio > cRatio) { dh = canvas.height; dw = dh * vRatio; dy = 0; dx = (canvas.width - dw)/2; } else { dw = canvas.width; dh = dw / vRatio; dx = 0; dy = (canvas.height - dh)/2; }
+                         ctx.drawImage(v, dx, dy, dw, dh);
+                    } else if(this.animState.img) {
+                        ctx.save(); const cx = canvas.width/2; const cy = canvas.height/2;
+                        ctx.translate(cx, cy); ctx.scale(this.animState.zoom, this.animState.zoom); ctx.translate(-cx, -cy);
+                        const imgRatio = this.animState.img.width / this.animState.img.height; const canvasRatio = canvas.width / canvas.height;
+                        let dw, dh, dx, dy;
+                        if (imgRatio > canvasRatio) { dh = canvas.height; dw = dh * imgRatio; dy = 0; dx = (canvas.width - dw) / 2; } else { dw = canvas.width; dh = dw / imgRatio; dx = 0; dy = (canvas.height - dh) / 2; }
+                        ctx.drawImage(this.animState.img, dx, dy, dw, dh); ctx.restore(); this.animState.zoom += 0.0015;
+                    } else {
+                        const grd = ctx.createLinearGradient(0, 0, 0, canvas.height); grd.addColorStop(0, "#0f0f1a"); grd.addColorStop(1, "#1a1a2e"); ctx.fillStyle = grd; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width/3, canvas.width/2, canvas.height/2, canvas.height);
+                    grad.addColorStop(0, "rgba(0,0,0,0)"); grad.addColorStop(1, "rgba(0,0,0,0.85)"); ctx.fillStyle = grad; ctx.fillRect(0,0, canvas.width, canvas.height);
 
-                if (this.animState.animation === 'slide') { 
-                    if(this.animState.textY > 0) this.animState.textY *= 0.9; 
-                    this.animState.textAlpha = Math.min(this.animState.textAlpha + 0.05, 1); 
-                } 
-                else if (this.animState.animation === 'typewriter') { 
-                    this.animState.progress += 0.5; 
-                    this.animState.textAlpha = 1; 
-                    this.animState.textY = 0; 
-                } 
-                else { 
-                    this.animState.textAlpha = Math.min(this.animState.textAlpha + 0.05, 1); 
-                    this.animState.textY = 0; 
-                }
-                
-                ctx.save(); ctx.globalAlpha = this.animState.textAlpha;
-                const boxH = canvas.height * 0.25; const boxY = canvas.height - boxH - 50; 
-                ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.beginPath(); 
-                if(ctx.roundRect) ctx.roundRect(40, boxY, canvas.width - 80, boxH, 30); else ctx.rect(40, boxY, canvas.width - 80, boxH); 
-                ctx.fill();
-                
-                ctx.fillStyle = this.animState.color; 
-                ctx.font = `900 ${this.animState.fontSize}px Montserrat, 'Noto Color Emoji'`; 
-                ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                let displayText = this.animState.text;
-                if(this.animState.animation === 'typewriter') { 
-                    const charCount = Math.floor(this.animState.progress); 
-                    displayText = this.animState.text.substring(0, charCount); 
-                }
-                this.wrapText(ctx, displayText, canvas.width/2, boxY + (boxH/2) + this.animState.textY, canvas.width * 0.8, this.animState.fontSize * 1.2);
-                ctx.restore();
-                
+                    if (this.animState.animation === 'slide') { if(this.animState.textY > 0) this.animState.textY *= 0.9; this.animState.textAlpha = Math.min(this.animState.textAlpha + 0.05, 1); } 
+                    else if (this.animState.animation === 'typewriter') { this.animState.progress += 0.5; this.animState.textAlpha = 1; this.animState.textY = 0; } 
+                    else { this.animState.textAlpha = Math.min(this.animState.textAlpha + 0.05, 1); this.animState.textY = 0; }
+                    
+                    ctx.save(); ctx.globalAlpha = this.animState.textAlpha;
+                    const boxH = canvas.height * 0.25; const boxY = canvas.height - boxH - 50; 
+                    ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.beginPath(); 
+                    if(ctx.roundRect) ctx.roundRect(40, boxY, canvas.width - 80, boxH, 30); else ctx.rect(40, boxY, canvas.width - 80, boxH); 
+                    ctx.fill();
+                    
+                    ctx.fillStyle = this.animState.color; ctx.font = `900 ${this.animState.fontSize}px Montserrat, 'Noto Color Emoji'`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                    let displayText = this.animState.text;
+                    if(this.animState.animation === 'typewriter') { const charCount = Math.floor(this.animState.progress); displayText = this.animState.text.substring(0, charCount); }
+                    this.wrapText(ctx, displayText, canvas.width/2, boxY + (boxH/2) + this.animState.textY, canvas.width * 0.8, this.animState.fontSize * 1.2);
+                    ctx.restore();
+                } catch(e) { } 
                 requestAnimationFrame(renderFrame);
             };
             requestAnimationFrame(renderFrame);
 
             for (let i = 0; i < this.scenes.length; i++) {
                 const scene = this.scenes[i]; const asset = assets[i];
-                
-                if(asset && asset.type === 'video') { 
-                    this.animState.video = asset.el; this.animState.img = null; 
-                    await asset.el.play(); 
-                } 
-                else if (asset && asset.type === 'image') { 
-                    this.animState.img = asset.el; this.animState.video = null; this.animState.zoom = 1.05; 
-                } 
-                else { this.animState.img = null; this.animState.video = null; }
-                
-                this.animState.text = scene.text; 
-                this.animState.color = scene.color || '#FFD700'; 
-                this.animState.fontSize = parseInt(scene.fontSize) || 80; 
-                this.animState.animation = scene.animation || 'fade';
-                this.animState.textY = 100; this.animState.textAlpha = 0; this.animState.progress = 0;
-                
-                const sceneDur = Math.max(parseFloat(scene.duration) * 1000, 2000); // Min 2 secs
-                
-                const p1 = (this.mode === 'creator' && scene.audio_blob) 
-                    ? this.playBlobAudio(scene.audio_blob) 
-                    : this.playTTS(scene.text, scene.duration);
-                
-                await Promise.all([p1, new Promise(r => setTimeout(r, sceneDur))]);
-                
-                if(asset && asset.type === 'video') asset.el.pause();
+                try {
+                    if(asset && asset.type === 'video') { this.animState.video = asset.el; this.animState.img = null; asset.el.play(); } 
+                    else if (asset && asset.type === 'image') { this.animState.img = asset.el; this.animState.video = null; this.animState.zoom = 1.05; } 
+                    else { this.animState.img = null; this.animState.video = null; }
+                    this.animState.text = scene.text; this.animState.color = scene.color || '#FFD700'; this.animState.fontSize = parseInt(scene.fontSize) || 80; this.animState.animation = scene.animation || 'fade';
+                    this.animState.textY = 100; this.animState.textAlpha = 0; this.animState.progress = 0;
+                    const sceneDur = parseFloat(scene.duration) * 1000;
+                    const p1 = (this.mode === 'creator' && scene.audio_blob) ? this.playBlobAudio(scene.audio_blob) : this.playTTS(scene.text, scene.duration);
+                    await Promise.all([p1, new Promise(r => setTimeout(r, sceneDur))]);
+                    if(asset && asset.type === 'video') asset.el.pause();
+                } catch(e) { }
             }
 
-            await new Promise(r => setTimeout(r, 2000)); // Outro tail
+            await new Promise(r => setTimeout(r, 2000));
             isRendering = false;
-            
             if(this.bgMusicNode) this.bgMusicNode.stop();
             mediaRecorder.stop();
-            
             mediaRecorder.onstop = () => {
-                const finalBlob = new Blob(chunks, { type: 'video/webm' });
-                this.videoURL = URL.createObjectURL(finalBlob);
+                this.videoURL = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
                 this.processing = false; this.step = 3; this.generateMetadata();
             };
         },
@@ -598,13 +399,10 @@ window.videoApp = function() {
         async playTTS(text, duration) {
             return new Promise((resolve) => {
                 if(!text) return resolve();
-                window.speechSynthesis.cancel(); 
-                const u = new SpeechSynthesisUtterance(text); 
-                u.rate = 1.0; u.volume = this.voiceVol;
-                u.onend = () => { resolve(); }; 
-                u.onerror = () => { resolve(); };
+                window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.0; u.volume = this.voiceVol;
+                u.onend = () => { resolve(); }; u.onerror = () => { resolve(); };
                 try { window.speechSynthesis.speak(u); } catch(e) { resolve(); }
-                setTimeout(resolve, (text.length * 200) + 2000); 
+                setTimeout(resolve, (text.length * 100) + 2000); 
             });
         },
 
@@ -629,3 +427,6 @@ window.videoApp = function() {
         }
     }
 }
+
+// 2. START ALPINE MANUALLY
+Alpine.start();
