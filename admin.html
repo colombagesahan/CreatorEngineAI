@@ -115,10 +115,11 @@
             list.innerHTML = '<div class="text-blue-500 animate-pulse">Loading...</div>';
             
             try {
+                // ENGINEERING FIX: Removed 'orderBy' to prevent Index Error. 
+                // Sorting is now handled in JavaScript below.
                 const q = query(
                     collection(db, "users"), 
-                    where("status", "==", "pending"),
-                    orderBy("slip_uploaded_at", "desc")
+                    where("status", "==", "pending")
                 );
                 
                 const snap = await getDocs(q);
@@ -131,10 +132,23 @@
                 }
                 empty.classList.add('hidden');
 
+                // Convert to array for sorting
+                let users = [];
                 snap.forEach(docSnap => {
-                    const data = docSnap.data();
-                    const uid = docSnap.id;
-                    const date = data.slip_uploaded_at ? new Date(data.slip_uploaded_at.toDate()).toLocaleString() : 'Just now';
+                    users.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                // Client-Side Sort (Newest First)
+                users.sort((a, b) => {
+                    const tA = a.slip_uploaded_at ? a.slip_uploaded_at.seconds : 0;
+                    const tB = b.slip_uploaded_at ? b.slip_uploaded_at.seconds : 0;
+                    return tB - tA;
+                });
+
+                // Render
+                users.forEach(data => {
+                    const uid = data.id;
+                    const date = data.slip_uploaded_at ? new Date(data.slip_uploaded_at.seconds * 1000).toLocaleString() : 'Just now';
 
                     const card = document.createElement('div');
                     card.className = "bg-gray-800 border border-gray-700 rounded-xl p-4 flex flex-col gap-4";
