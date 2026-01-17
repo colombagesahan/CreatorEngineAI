@@ -3,6 +3,10 @@ import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/fi
 import { getFirestore, doc, getDoc, updateDoc, serverTimestamp, getDocs, collection, query, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
+// CRITICAL FIX: Direct ESM Imports. No reliance on HTML scripts.
+import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm';
+import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm';
+
 const firebaseConfig = {
     apiKey: "AIzaSyAE88FW3US3aZRn5TLEdXkad-jvak3W4yI",
     authDomain: "sahantechhub.firebaseapp.com",
@@ -18,9 +22,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-const { fetchFile, toBlobURL } = FFmpegUtil;
-const { FFmpeg } = FFmpegWASM;
-
+// Alpine Initialization
 document.addEventListener('alpine:init', () => {
     Alpine.data('videoApp', () => ({
         step: 1, mode: 'quick', targetCountry: 'USA', format: '9:16', topic: '', loading: false, processing: false, progressText: '',
@@ -49,17 +51,24 @@ document.addEventListener('alpine:init', () => {
             this.checkAuth();
             this.checkForAlerts();
             const cvs = document.getElementById('videoCanvas');
-            if(this.format === '9:16') { cvs.width = 1080; cvs.height = 1920; }
-            else { cvs.width = 1920; cvs.height = 1080; }
+            if(cvs) {
+                if(this.format === '9:16') { cvs.width = 1080; cvs.height = 1920; }
+                else { cvs.width = 1920; cvs.height = 1080; }
+            }
 
             // Slip Upload Logic
             const slipInput = document.getElementById('slipInput');
-            slipInput.addEventListener('change', (e) => {
-                const f = e.target.files[0];
-                if(f) document.getElementById('slipFileName').innerText = f.name;
-            });
+            if(slipInput) {
+                slipInput.addEventListener('change', (e) => {
+                    const f = e.target.files[0];
+                    if(f) document.getElementById('slipFileName').innerText = f.name;
+                });
+            }
 
-            document.getElementById('submitSlipBtn').addEventListener('click', () => this.uploadSlip());
+            const submitBtn = document.getElementById('submitSlipBtn');
+            if(submitBtn) {
+                submitBtn.addEventListener('click', () => this.uploadSlip());
+            }
         },
 
         checkAuth() {
@@ -117,8 +126,11 @@ document.addEventListener('alpine:init', () => {
                 if (!snap.empty) {
                     const msg = snap.docs[0].data().message;
                     if (msg) {
-                        document.getElementById('alertMessage').innerText = msg;
-                        document.getElementById('alertModal').classList.remove('hidden');
+                        const alertModal = document.getElementById('alertModal');
+                        if(alertModal) {
+                            document.getElementById('alertMessage').innerText = msg;
+                            alertModal.classList.remove('hidden');
+                        }
                     }
                 }
             } catch (e) { console.log("No alerts"); }
@@ -575,13 +587,9 @@ document.addEventListener('alpine:init', () => {
                 window.speechSynthesis.cancel(); 
                 const u = new SpeechSynthesisUtterance(text); 
                 u.rate = 1.0; u.volume = this.voiceVol;
-                
-                // Important: If browser blocks auto-audio, this might fire immediately.
-                // The loop logic now handles the timing via setTimeout, so this is just for effect.
                 u.onend = () => { resolve(); }; 
                 u.onerror = () => { resolve(); };
                 try { window.speechSynthesis.speak(u); } catch(e) { resolve(); }
-                // Fallback timeout in case onend never fires
                 setTimeout(resolve, (text.length * 200) + 2000); 
             });
         },
