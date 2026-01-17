@@ -1,7 +1,9 @@
-const CACHE_NAME = 'creator-engine-v1';
+const CACHE_NAME = 'creator-engine-v2';
 const urlsToCache = [
   './',
   './index.html',
+  './dashboard.html',
+  './howtouse.html',
   './manifest.json',
   './favicon.png',
   './logo.png'
@@ -15,8 +17,8 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Network first for Dashboard logic, cache fallback
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => response || fetch(event.request))
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
