@@ -1,4 +1,4 @@
-const CACHE_NAME = 'creator-engine-v2';
+const CACHE_NAME = 'creator-engine-v30.8';
 const urlsToCache = [
   './',
   './index.html',
@@ -17,7 +17,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first for Dashboard logic, cache fallback
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );
