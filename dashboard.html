@@ -14,9 +14,13 @@
 <!-- Scripts & Styles -->
 <script src="coi-serviceworker.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.7/dist/umd/ffmpeg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<!-- AlpineJS for state management -->
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
 <style>
     body { font-family: 'Montserrat', sans-serif; background: #050505; color: white; overflow-x: hidden; }
@@ -38,9 +42,59 @@
     .anim-select { background-color: #111827; color: white; border: 1px solid #374151; font-size: 10px; padding: 2px 5px; border-radius: 4px; outline: none; }
     .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Lock Screen Overlay */
+    .lock-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: center; flex-col; }
 </style>
 </head>
 <body x-data="videoApp()">
+
+<!-- BLOCK SCREEN / PAYMENT MODAL -->
+<div id="lockScreen" class="lock-overlay hidden flex-col p-6 text-center space-y-6">
+    <div class="glass-panel p-8 rounded-2xl max-w-md w-full border border-red-500/30 shadow-2xl shadow-red-900/20">
+        <div class="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-2xl animate-bounce">
+            <i class="fas fa-lock"></i>
+        </div>
+        <h2 class="text-2xl font-black text-white">Trial Expired</h2>
+        <p class="text-xs text-gray-400 mt-2">To continue using CreatorEngineAI, please upgrade.</p>
+        
+        <div class="bg-gray-900 rounded-xl p-4 mt-6 text-left space-y-2 border border-gray-700">
+            <p class="text-[10px] text-gray-500 uppercase font-bold">Bank Details</p>
+            <div class="text-sm font-bold text-white">COLOMBAGE SD</div>
+            <div class="text-lg font-mono text-yellow-400">8750053306</div>
+            <div class="text-xs text-gray-300">COMMERCIAL BANK, HOMAGAMA BRANCH</div>
+            <div class="text-xs text-gray-300 mt-2">Amount: <span class="text-white font-bold">Rs. 1000.00</span></div>
+        </div>
+
+        <div class="mt-6 space-y-3">
+            <p class="text-[10px] text-gray-400">Upload Payment Slip / Screenshot</p>
+            <label class="block w-full py-3 border-2 border-dashed border-gray-600 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-gray-800 transition relative">
+                <input type="file" id="slipInput" class="hidden" accept="image/*">
+                <span id="slipFileName" class="text-xs font-bold text-gray-400"><i class="fas fa-upload mr-1"></i> Choose File</span>
+            </label>
+            <button id="submitSlipBtn" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl shadow-lg transition text-xs uppercase tracking-widest">
+                Submit & Unlock
+            </button>
+        </div>
+        
+        <div id="pendingMessage" class="hidden mt-4 p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg">
+             <p class="text-[10px] text-blue-200 leading-relaxed">
+                 <i class="fas fa-clock mr-1"></i> Please wait 30 minutes. We are reviewing your payment slip/screen shot is valid. Dashboard will auto-unlock shortly.
+             </p>
+        </div>
+    </div>
+</div>
+
+<!-- GLOBAL ALERT MODAL -->
+<div id="alertModal" class="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center hidden p-6">
+    <div class="glass-panel p-6 rounded-xl max-w-sm w-full text-center">
+        <i class="fas fa-bell text-yellow-400 text-3xl mb-3"></i>
+        <h3 class="font-bold text-white text-lg">New Notification</h3>
+        <p id="alertMessage" class="text-sm text-gray-300 mt-2 mb-4"></p>
+        <button onclick="document.getElementById('alertModal').classList.add('hidden')" class="bg-white text-black font-bold px-6 py-2 rounded-full text-xs">Close</button>
+    </div>
+</div>
+
 <div class="max-w-2xl mx-auto min-h-screen bg-black border-x border-gray-900 relative flex flex-col shadow-2xl">
     
     <!-- HEADER -->
@@ -51,12 +105,23 @@
                 <img src="logo.png" alt="Logo" class="w-8 h-8 rounded-lg object-cover">
                 CreatorEngine<span class="text-blue-500">AI</span>
             </h1>
-            <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                <span class="text-green-400">●</span> Engine v30.7 (Stable Complete)
-            </p>
+            <div class="flex items-center gap-3 mt-1">
+                <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">
+                    <span class="text-green-400">●</span> Engine v30.7
+                </p>
+                <!-- TRIAL TIMER -->
+                <div id="trialTimer" class="hidden bg-blue-900/50 px-2 py-0.5 rounded text-[9px] font-mono text-blue-200 border border-blue-500/30">
+                    <i class="fas fa-stopwatch"></i> <span id="timeLeft">--:--</span> left
+                </div>
+            </div>
         </div>
-        <div x-show="step > 1">
-            <button @click="reset()" class="text-xs text-gray-500 hover:text-white px-3 py-1 border border-gray-800 rounded-lg transition">New Project</button>
+        <div class="flex items-center gap-2">
+            <!-- How To Use Link -->
+            <a href="howtouse.html" class="text-[9px] font-bold text-gray-500 hover:text-white mr-2"><i class="fas fa-book-open"></i> Help</a>
+            
+            <div x-show="step > 1">
+                <button @click="reset()" class="text-xs text-gray-500 hover:text-white px-3 py-1 border border-gray-800 rounded-lg transition">New Project</button>
+            </div>
         </div>
     </div>
 
@@ -345,4 +410,3 @@
 <script type="module" src="dashboard.js"></script>
 </body>
 </html>
-
