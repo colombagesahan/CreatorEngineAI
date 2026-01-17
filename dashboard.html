@@ -16,18 +16,14 @@
 <!-- Scripts & Styles -->
 <script src="coi-serviceworker.js"></script>
 <script>
-    window.tailwind = {
-        config: {
-            theme: { extend: { colors: { clifford: '#da373d', } } }
-        }
-    }
+    window.tailwind = { config: { theme: { extend: { colors: { clifford: '#da373d', } } } } }
 </script>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
 
-<!-- AlpineJS (Defer to allow dashboard.js to load, but we handle race conditions in JS) -->
+<!-- AlpineJS (Deferred) -->
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
 <style>
@@ -50,8 +46,6 @@
     .anim-select { background-color: #111827; color: white; border: 1px solid #374151; font-size: 10px; padding: 2px 5px; border-radius: 4px; outline: none; }
     .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    
-    /* Lock Screen Overlay */
     .lock-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: center; flex-col; }
 </style>
 </head>
@@ -109,7 +103,6 @@
     <div class="p-5 border-b border-gray-800 bg-black/90 backdrop-blur z-30 sticky top-0 flex justify-between items-center">
         <div>
             <h1 class="text-xl font-black text-white flex items-center gap-2">
-                <!-- UPDATED LOGO -->
                 <img src="logo.png" alt="Logo" class="w-8 h-8 rounded-lg object-cover">
                 CreatorEngine<span class="text-blue-500">AI</span>
             </h1>
@@ -117,14 +110,12 @@
                 <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">
                     <span class="text-green-400">●</span> Engine v30.9 (Stable)
                 </p>
-                <!-- TRIAL TIMER -->
                 <div id="trialTimer" class="hidden bg-blue-900/50 px-2 py-0.5 rounded text-[9px] font-mono text-blue-200 border border-blue-500/30">
                     <i class="fas fa-stopwatch"></i> <span id="timeLeft">--:--</span> left
                 </div>
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <!-- How To Use Link -->
             <a href="howtouse.html" class="text-[9px] font-bold text-gray-500 hover:text-white mr-2"><i class="fas fa-book-open"></i> Help</a>
             
             <div x-show="step > 1">
@@ -200,7 +191,6 @@
 
     <!-- STEP 2: STUDIO EDITOR -->
     <div x-show="step === 2" class="p-4 flex-1 flex flex-col gap-6 relative z-10">
-        
         <div class="glass-panel p-3 rounded-xl border border-gray-700/50 flex flex-col gap-3">
             <div class="flex justify-between items-center">
                 <span class="text-[10px] font-bold text-gray-400 uppercase">🎚️ Audio Mixer</span>
@@ -345,42 +335,37 @@
 
     <!-- STEP 3: RESULT -->
     <div x-show="step === 3" class="p-6 flex-1 flex flex-col items-center justify-start relative z-10 animate-fade-in overflow-y-auto">
-        <!-- Inside Step 3 container -->
-<div class="glass-panel rounded-2xl p-2 w-full max-w-sm border-2 border-green-500/30">
-    <div class="bg-black rounded-xl overflow-hidden relative shadow-2xl">
-        <video :src="videoURL" controls preload="auto" playsinline class="w-full object-cover" :class="format === '9:16' ? 'aspect-[9/16]' : 'aspect-video'"></video>
-    </div>
-    
-    <!-- WEBM Download (Default) -->
-    <a :href="videoURL" download="viral_video.webm" class="block mt-3 bg-gray-700 text-white text-center font-bold py-3 rounded-lg hover:bg-gray-600 transition text-xs uppercase tracking-widest shadow-lg">
-        Download WebM (Fast) ⬇️
-    </a>
+        <div class="glass-panel rounded-2xl p-2 w-full max-w-sm border-2 border-green-500/30">
+            <div class="bg-black rounded-xl overflow-hidden relative shadow-2xl">
+                <video :src="videoURL" controls preload="auto" playsinline class="w-full object-cover" :class="format === '9:16' ? 'aspect-[9/16]' : 'aspect-video'"></video>
+            </div>
+            
+            <a :href="videoURL" download="viral_video.webm" class="block mt-3 bg-gray-700 text-white text-center font-bold py-3 rounded-lg hover:bg-gray-600 transition text-xs uppercase tracking-widest shadow-lg">
+                Download WebM (Fast) ⬇️
+            </a>
 
-    <!-- MP4 Converter Button -->
-    <div class="mt-2">
-        <button x-show="!mp4URL && !converting" @click="convertToMP4()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
-            <i class="fas fa-sync"></i> Convert to MP4
-        </button>
+            <div class="mt-2">
+                <button x-show="!mp4URL && !converting" @click="convertToMP4()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-500 transition text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
+                    <i class="fas fa-sync"></i> Convert to MP4
+                </button>
 
-        <button x-show="converting" disabled class="w-full bg-blue-800 text-gray-300 font-bold py-3 rounded-lg cursor-wait text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
-            <i class="fas fa-circle-notch fa-spin"></i> Converting...
-        </button>
+                <button x-show="converting" disabled class="w-full bg-blue-800 text-gray-300 font-bold py-3 rounded-lg cursor-wait text-xs uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
+                    <i class="fas fa-circle-notch fa-spin"></i> Converting...
+                </button>
 
-        <a x-show="mp4URL" :href="mp4URL" download="viral_video.mp4" class="block bg-green-600 text-white text-center font-bold py-3 rounded-lg hover:bg-green-500 transition text-xs uppercase tracking-widest shadow-lg animate-pulse">
-            Download MP4 Ready! ⬇️
-        </a>
-    </div>
-</div>
+                <a x-show="mp4URL" :href="mp4URL" download="viral_video.mp4" class="block bg-green-600 text-white text-center font-bold py-3 rounded-lg hover:bg-green-500 transition text-xs uppercase tracking-widest shadow-lg animate-pulse">
+                    Download MP4 Ready! ⬇️
+                </a>
+            </div>
+        </div>
 
-        <!-- SEO METADATA SECTION -->
+        <!-- SEO METADATA -->
         <div class="w-full max-w-sm mt-6 fade-in-up">
-            <!-- Loading State -->
             <div x-show="metadataLoading" class="glass-panel p-4 rounded-xl text-center border border-gray-700/30">
                 <i class="fas fa-magic fa-spin text-purple-500 text-2xl mb-2"></i>
                 <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Generating Viral Metadata...</p>
             </div>
         
-            <!-- Result State -->
             <div x-show="!metadataLoading && generatedTitle" class="glass-panel p-4 rounded-xl space-y-4 border border-gray-700/50">
                 <div class="border-b border-gray-800 pb-2 mb-2">
                      <h3 class="text-sm font-black text-white flex items-center gap-2"><i class="fas fa-rocket text-purple-500"></i> Viral SEO Pack</h3>
