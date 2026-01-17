@@ -1,17 +1,15 @@
 <!DOCTYPE html>
-<html lang="si">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CreatorEngineAI - Sri Lanka</title>
+    <title>CreatorEngineAI - Login</title>
     
     <!-- PWA Setup -->
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="favicon.png">
     <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <!-- Scripts & Styles -->
     <script>
@@ -22,8 +20,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;700;900&family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Noto Sans Sinhala', 'Montserrat', sans-serif; background-color: #050505; color: white; overflow-x: hidden; }
-        .gradient-text { background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        body { font-family: 'Montserrat', sans-serif; background-color: #050505; color: white; overflow-x: hidden; }
         .glass-card { background: rgba(20, 20, 25, 0.9); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); }
         .install-btn { animation: pulse-blue 2s infinite; }
         @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
@@ -31,66 +28,42 @@
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-4 relative">
 
-    <!-- Background Elements -->
     <div class="absolute top-0 left-0 w-full h-64 bg-blue-900/20 blur-[100px] pointer-events-none"></div>
     <div class="absolute bottom-0 right-0 w-full h-64 bg-purple-900/20 blur-[100px] pointer-events-none"></div>
 
-    <!-- PWA Install Button -->
     <button id="installAppBtn" class="hidden fixed top-4 right-4 z-50 bg-blue-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg flex items-center gap-2 install-btn">
         <i class="fas fa-download"></i> Install App
     </button>
 
-    <!-- Main Container -->
     <div class="w-full max-w-md flex flex-col gap-6 relative z-10">
-        
-        <!-- Logo Area -->
         <div class="text-center space-y-2">
             <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl mx-auto flex items-center justify-center shadow-2xl mb-4 overflow-hidden">
-                <img src="logo.png" alt="CreatorEngineAI Logo" class="w-full h-full object-cover">
+                <img src="logo.png" alt="CreatorEngineAI" class="w-full h-full object-cover">
             </div>
-            
             <h1 class="text-2xl font-black tracking-tighter">CreatorEngine<span class="text-blue-500">AI</span></h1>
             <p class="text-[10px] text-gray-400 uppercase tracking-[0.2em] font-bold">Automated YouTube Empire</p>
         </div>
 
-        <!-- Value Proposition -->
         <div class="glass-card rounded-2xl p-6 space-y-6">
             <div class="space-y-4">
                 <div class="flex gap-3 items-start">
                     <div class="bg-green-500/10 p-2 rounded-lg text-green-500 shrink-0"><i class="fas fa-dollar-sign"></i></div>
                     <p class="text-sm font-medium leading-relaxed text-gray-200">
-                        පිටරට audience එකකට <span class="text-white font-bold">Value Content Videos</span> හදල YouTube එකෙන් මිලියන ගණන් මුදල් උපයන්න.
+                        Create viral content for foreign audiences and earn millions from YouTube.
                     </p>
                 </div>
                 
                 <div class="grid grid-cols-1 gap-3">
-                    <div class="flex items-center gap-3 text-xs text-gray-400">
-                        <i class="fas fa-video-slash text-red-400 w-4"></i> Camera ඕනේ නෑ.
-                    </div>
-                    <div class="flex items-center gap-3 text-xs text-gray-400">
-                        <i class="fas fa-search text-blue-400 w-4"></i> Trending Topic හොයන්න මහන්සිවෙන්න ඕනේ නෑ.
-                    </div>
-                    <div class="flex items-center gap-3 text-xs text-gray-400">
-                        <i class="fas fa-pen-nib text-purple-400 w-4"></i> Script ලියන්න මහන්සි වෙන්න ඕනේ නෑ.
-                    </div>
-                    <div class="flex items-center gap-3 text-xs text-gray-400">
-                        <i class="fas fa-ban text-gray-500 w-4"></i> Watermark නෑ.
-                    </div>
-                </div>
-
-                <div class="bg-blue-900/30 border border-blue-500/30 rounded-xl p-4 text-center">
-                    <p class="text-xs text-blue-200 leading-relaxed font-medium">
-                        සුපිරි Video අසීමිතව හදන්න. YouTube එකට Upload කරන්න. නිවසේ සිට Dollar උපයන්න.
-                    </p>
+                    <div class="flex items-center gap-3 text-xs text-gray-400"><i class="fas fa-video-slash text-red-400 w-4"></i> No Camera Needed.</div>
+                    <div class="flex items-center gap-3 text-xs text-gray-400"><i class="fas fa-search text-blue-400 w-4"></i> Auto-Trend Finder.</div>
+                    <div class="flex items-center gap-3 text-xs text-gray-400"><i class="fas fa-pen-nib text-purple-400 w-4"></i> AI Script Writing.</div>
                 </div>
             </div>
 
-            <!-- Pricing & CTA -->
             <div class="border-t border-gray-700 pt-5 text-center space-y-4">
                 <div class="flex flex-col items-center">
                     <span class="text-[10px] text-gray-500 font-bold uppercase">Price after trial</span>
                     <div class="text-xl font-black text-white">Rs. 1000 <span class="text-xs font-normal text-gray-400">/mo</span></div>
-                    <span class="text-[9px] text-green-400 mt-1">● බැංකු කාඩ්පත් විස්තර ඇතුලත් කිරීමට අවශ්‍ය නැත</span>
                 </div>
 
                 <button id="loginBtn" class="w-full bg-white text-black py-4 rounded-xl font-bold text-sm shadow-xl hover:bg-gray-200 transition transform active:scale-95 flex items-center justify-center gap-3">
@@ -99,15 +72,12 @@
                 </button>
             </div>
         </div>
-
-        <!-- Footer -->
-        <p class="text-center text-[9px] text-gray-600">
-            &copy; 2024 Sahan Tech Hub. All rights reserved.
-        </p>
+        
+        <p class="text-center text-[9px] text-gray-600">&copy; 2024 Sahan Tech Hub. All rights reserved.</p>
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
+        // Dynamic Import to prevent blocking
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -127,64 +97,37 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        const loginBtn = document.getElementById('loginBtn');
-
-        // Login Logic
-        loginBtn.addEventListener('click', () => {
-            signInWithPopup(auth, provider)
-                .then(async (result) => {
-                    const user = result.user;
-                    const userRef = doc(db, "users", user.uid);
-                    const userSnap = await getDoc(userRef);
-
-                    if (!userSnap.exists()) {
-                        await setDoc(userRef, {
-                            email: user.email,
-                            createdAt: serverTimestamp(),
-                            status: 'trial',
-                            uid: user.uid
-                        });
-                    }
-                    window.location.href = "dashboard.html";
-                })
-                .catch((error) => {
-                    console.error("Login Error:", error);
-                    alert("Login failed. Please try again.");
-                });
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            signInWithPopup(auth, provider).then(async (result) => {
+                const user = result.user;
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, {
+                        email: user.email,
+                        createdAt: serverTimestamp(),
+                        status: 'trial',
+                        uid: user.uid
+                    });
+                }
+                window.location.href = "dashboard.html";
+            }).catch(e => alert("Login failed: " + e.message));
         });
 
         onAuthStateChanged(auth, (user) => {
-            if (user) {
-                window.location.href = "dashboard.html";
-            }
+            if (user) window.location.href = "dashboard.html";
         });
 
-        // PWA Install
+        // PWA
         let deferredPrompt;
         const installBtn = document.getElementById('installAppBtn');
-
         window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            installBtn.classList.remove('hidden');
+            e.preventDefault(); deferredPrompt = e; installBtn.classList.remove('hidden');
         });
-
         installBtn.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    installBtn.classList.add('hidden');
-                }
-                deferredPrompt = null;
-            }
+            if (deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; installBtn.classList.add('hidden'); }
         });
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js');
-            });
-        }
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
     </script>
 </body>
 </html>
