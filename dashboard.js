@@ -31,7 +31,7 @@ window.videoApp = function() {
         
         // Video State
         videoURL: null, 
-        apiKey: 'AIzaSyBX8sgQFlSVm1CtOT1PvrMcjHrYGvVQw8M',
+        apiKey: 'AIzaSyBPoOd87sG2LpICsMk6mi7Aeg9nvKTWq5c',
 
         // FFmpeg State
         ffmpeg: null,
