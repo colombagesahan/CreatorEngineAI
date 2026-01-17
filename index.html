@@ -9,10 +9,17 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="favicon.png">
     <meta name="theme-color" content="#000000">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <!-- Scripts & Styles -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { clifford: '#da373d', } } }
+        }
+    </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;700;900&family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 
@@ -40,7 +47,6 @@
         
         <!-- Logo Area -->
         <div class="text-center space-y-2">
-            <!-- UPDATED: Shows logo.png instead of robot icon -->
             <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl mx-auto flex items-center justify-center shadow-2xl mb-4 overflow-hidden">
                 <img src="logo.png" alt="CreatorEngineAI Logo" class="w-full h-full object-cover">
             </div>
