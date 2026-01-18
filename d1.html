@@ -9,7 +9,7 @@ import {
 import Alpine
 from "https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/module.esm.js";
 
-// Console Warning Fix for Tailwind
+// Console Warning Fix
 const origWarn = console.warn;
 console.warn = (...args) => {
   if (args[0] && typeof args[0] === 'string' &&
@@ -17,8 +17,8 @@ console.warn = (...args) => {
   origWarn.apply(console, args);
 };
 
-// Expose function globally
-window.videoApp = function() {
+// 2. DEFINE APPLICATION LOGIC
+function createVideoApp() {
   return {
     step: 1,
     mode: 'quick',
@@ -31,7 +31,7 @@ window.videoApp = function() {
 
     // Video State
     videoURL: null,
-    apiKey: 'AIzaSyBYpVANEBfX2W7L1J3bnEMGX-PjqxSAD08', // Note: Exposing API keys is risky.
+    apiKey: 'AIzaSyBTqvuFntLnw1NOEt7RyZUzbZThvbbWXVU',
 
     // FFmpeg State
     ffmpeg: null,
@@ -100,25 +100,37 @@ window.videoApp = function() {
       this.converting = false;
     },
 
-    // --- FFMPEG CONVERSION LOGIC (FIXED) ---
+    // --- FFMPEG (Fixed for GitHub Pages) ---
     async convertToMP4() {
       if (!this.videoURL) return alert("No video to convert!");
       this.converting = true;
       try {
         if (!this.ffmpeg) {
           this.ffmpeg = new FFmpeg();
-          // Explicitly use the Single-Threaded Core (0.12.6)
-          const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
-          
+          const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6';
+          const esmURL = `${baseURL}/dist/esm`;
+
+          // 1. Manually fetch the worker code
+          const workerResp = await fetch(`${esmURL}/ffmpeg-core.worker.js`);
+          const workerText = await workerResp.text();
+          // 2. Create a local Blob for the worker
+          const workerBlob = new Blob([workerText], {
+            type: 'text/javascript'
+          });
+          const workerObjURL = URL.createObjectURL(workerBlob);
+
           await this.ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-            // Adding workerURL fixes many blob/path issues
-            workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
+            coreURL: await toBlobURL(`${esmURL}/ffmpeg-core.js`,
+              'text/javascript'),
+            wasmURL: await toBlobURL(`${esmURL}/ffmpeg-core.wasm`,
+              'application/wasm'),
+            workerURL: workerObjURL // Pass the local Blob URL
           });
         }
-        
-        await this.ffmpeg.writeFile('input.webm', await fetchFile(this.videoURL));
+
+        await this.ffmpeg.writeFile('input.webm',
+          await fetchFile(this.videoURL));
+
         await this.ffmpeg.exec([
           '-i', 'input.webm',
           '-c:v', 'libx264',
@@ -126,6 +138,7 @@ window.videoApp = function() {
           '-pix_fmt', 'yuv420p',
           'output.mp4'
         ]);
+
         const data = await this.ffmpeg.readFile('output.mp4');
         const blob = new Blob([data.buffer], {
           type: 'video/mp4'
@@ -133,13 +146,13 @@ window.videoApp = function() {
         this.mp4URL = URL.createObjectURL(blob);
       } catch (error) {
         console.error("Conversion Error:", error);
-        // Show the REAL error message now
-        alert("Conversion Error: " + error.message);
+        alert(`Error: ${error.message}. If this persists, ` +
+          `it is likely a GitHub Pages threading limitation.`);
       }
       this.converting = false;
     },
 
-    // --- EXISTING LOGIC ---
+    // --- AI & LOGIC ---
     async getValidModel() {
       if (this.validModel) return this.validModel;
       try {
@@ -769,8 +782,16 @@ window.videoApp = function() {
         ctx.fillText(l, x, startY + (i * lineHeight));
       });
     }
-  }
+  };
 }
 
-// 2. START ALPINE MANUALLY
+// 3. ATTACH TO WINDOW & START ALPINE
+window.videoApp = createVideoApp;
+
+// Only start Alpine if it hasn't started yet
+document.addEventListener('alpine:init', () => {
+  // Logic if needed on init
+});
+
+// Since we are using modules, Alpine might need a kickstart if not auto-loaded
 Alpine.start();
