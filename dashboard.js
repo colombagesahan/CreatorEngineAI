@@ -229,29 +229,32 @@ function createVideoApp() {
 
       const model = await this.getValidModel();
 
-      // --- NEW "NARRATOR" PROMPT (Ad-Friendly) ---
-      let prompt = `Act as a Professional YouTube Narrator. Target: ${this.targetCountry}. `;
+      // --- FACELESS DOCUMENTARY PROMPT START ---
+      let prompt = `Act as a Scriptwriter for a Faceless YouTube Channel (Documentary Style). Target: ${this.targetCountry}. `;
       prompt += `Topic: "${this.topic}". `;
-      prompt += `IMPORTANT: Return ONLY the spoken words (Script). Do NOT include visual instructions like [Cut to...] or (Host says). `;
-      prompt += `Make the content Ad-Friendly (High CPM, Brand Safe), engaging, and strictly spoken-word only. `;
+      
+      // CRITICAL: FACELESS RULES
+      prompt += `STRICT RULES: `;
+      prompt += `1. Do NOT use "I", "We", "Me", "My channel", or "Welcome back". `;
+      prompt += `2. Write in THIRD PERSON only (Objective Narrator). `;
+      prompt += `3. Return ONLY the spoken words. No visual instructions. `;
+      prompt += `4. Tone: Educational, Engaging, and Fact-Based. `;
 
       if (this.format === '9:16') {
         // Shorts Logic
         prompt += `Format: YouTube Short (Under 60s). `;
         prompt += `Create 5 scenes. `;
-        prompt += `Scene 1: Hook (Spoken text only). `;
-        prompt += `Scenes 2-4: Value/Facts (Spoken text only). `;
-        prompt += `Scene 5: Call to Action (Spoken text only). `;
+        prompt += `Structure: Hook (Shocking Fact) -> 3 Fast Facts -> Twist/Conclusion. `;
       } else {
         // Long Form Logic
         prompt += `Format: Standard YouTube Video. `;
         prompt += `Create 12 scenes. `;
-        prompt += `Structure: Spoken Intro -> 3 Spoken Points -> Spoken Conclusion. `;
+        prompt += `Structure: Deep Dive Intro -> 3 Key Historical/Financial Points -> Summary. `;
       }
 
       prompt += `For 'color_hex': Pick NEON (#FF0055, #00CCFF, #00FF99). `;
       prompt += `Return JSON: { "scenes": [{ "text": "...", "color_hex": "..." }] };`;
-      // --- END PROMPT ---
+      // --- PROMPT END ---
 
       try {
         const base = "https://generativelanguage.googleapis.com/v1beta/models";
