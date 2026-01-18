@@ -31,7 +31,8 @@ function createVideoApp() {
 
     // Video State
     videoURL: null,
-    apiKey: 'AIzaSyBTqvuFntLnw1NOEt7RyZUzbZThvbbWXVU',
+    // UPDATED API KEY
+    apiKey: 'AIzaSyCalVpDl4zE-f5_tYVgc2y97IxLSM07wXA',
 
     // FFmpeg State
     ffmpeg: null,
@@ -42,7 +43,7 @@ function createVideoApp() {
     dest: null,
     mediaRecorder: null,
     audioChunks: [],
-    recordingIndex: null,
+    recordingIndex: null, // Tracks which scene is currently recording
     recStartTime: 0,
     validModel: null,
     bgMusicFile: null,
@@ -100,7 +101,7 @@ function createVideoApp() {
       this.converting = false;
     },
 
-    // --- FFMPEG (Firebase Compatible) ---
+    // --- FFMPEG (Firebase Compatible with Manual Worker) ---
     async convertToMP4() {
       if (!this.videoURL) return alert("No video to convert!");
       this.converting = true;
@@ -232,7 +233,7 @@ function createVideoApp() {
       // --- FACELESS DOCUMENTARY PROMPT START ---
       let prompt = `Act as a Scriptwriter for a Faceless YouTube Channel (Documentary Style). Target: ${this.targetCountry}. `;
       prompt += `Topic: "${this.topic}". `;
-      
+
       // CRITICAL: FACELESS RULES
       prompt += `STRICT RULES: `;
       prompt += `1. Do NOT use "I", "We", "Me", "My channel", or "Welcome back". `;
@@ -408,6 +409,7 @@ function createVideoApp() {
       if (this.scenes.length > 1) this.scenes.splice(index, 1);
     },
 
+    // --- SOUND PRACTICE (TTS) ---
     playGuide(text) {
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text || "Text missing");
@@ -416,9 +418,10 @@ function createVideoApp() {
       window.speechSynthesis.speak(u);
     },
 
+    // --- RECORDING START (Microphone) ---
     async startRecording(index) {
       window.speechSynthesis.cancel();
-      this.recordingIndex = index;
+      this.recordingIndex = index; // Activates the "Stop" button in UI
       this.audioChunks = [];
       this.recStartTime = Date.now();
       try {
@@ -430,9 +433,11 @@ function createVideoApp() {
         this.mediaRecorder.start();
       } catch (e) {
         alert("Mic Access Denied.");
+        this.recordingIndex = null;
       }
     },
 
+    // --- RECORDING STOP (Duration Overwrite) ---
     stopRecording(index) {
       if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
         this.mediaRecorder.stop();
@@ -443,12 +448,14 @@ function createVideoApp() {
           this.scenes[index].audio_blob = blob;
 
           // --- DURATION AUTHORITY LOGIC ---
+          // 1. Calculate how long the user talked
           const duration = (Date.now() - this.recStartTime) / 1000;
           this.scenes[index].recDuration = duration.toFixed(1);
 
-          // OVERWRITE the estimated duration with actual recording time
+          // 2. OVERWRITE the scene duration with actual recording time
           this.scenes[index].duration = duration.toFixed(1);
 
+          // 3. Reset State
           this.recordingIndex = null;
           this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
         };
