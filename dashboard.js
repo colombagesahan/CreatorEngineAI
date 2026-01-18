@@ -206,6 +206,16 @@ function createVideoApp() {
       this.loading = false;
     },
 
+    // --- HELPER: CLEAN AI TEXT ---
+    cleanText(rawText) {
+      if (!rawText) return "";
+      // Remove text inside [brackets] and (parentheses)
+      let cleaned = rawText.replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '');
+      // Remove "Host:" or "Narrator:" prefixes
+      cleaned = cleaned.replace(/^(Host|Narrator|Speaker):/gmi, '');
+      return cleaned.trim();
+    },
+
     async generateScript() {
       if (!this.topic) return alert("Enter a topic!");
       this.loading = true;
@@ -219,27 +229,29 @@ function createVideoApp() {
 
       const model = await this.getValidModel();
 
-      // --- SMART PROMPT START ---
-      let prompt = `Act as a Viral Director. Target: ${this.targetCountry}. `;
+      // --- NEW "NARRATOR" PROMPT (Ad-Friendly) ---
+      let prompt = `Act as a Professional YouTube Narrator. Target: ${this.targetCountry}. `;
       prompt += `Topic: "${this.topic}". `;
+      prompt += `IMPORTANT: Return ONLY the spoken words (Script). Do NOT include visual instructions like [Cut to...] or (Host says). `;
+      prompt += `Make the content Ad-Friendly (High CPM, Brand Safe), engaging, and strictly spoken-word only. `;
 
       if (this.format === '9:16') {
-        // Shorts Logic (Aim for ~30-40s initial draft)
-        prompt += `Format: YouTube Short (Vertical). `;
+        // Shorts Logic
+        prompt += `Format: YouTube Short (Under 60s). `;
         prompt += `Create 5 scenes. `;
-        prompt += `Scene 1: Hook (<8 words). `;
-        prompt += `Scenes 2-4: Fast value/facts (<12 words). `;
-        prompt += `Scene 5: Twist or Call to Action. `;
+        prompt += `Scene 1: Hook (Spoken text only). `;
+        prompt += `Scenes 2-4: Value/Facts (Spoken text only). `;
+        prompt += `Scene 5: Call to Action (Spoken text only). `;
       } else {
-        // Long Form Logic (Aim for ~90s initial draft)
-        prompt += `Format: Standard YouTube Video (Horizontal). `;
+        // Long Form Logic
+        prompt += `Format: Standard YouTube Video. `;
         prompt += `Create 12 scenes. `;
-        prompt += `Structure: Intro -> 3 Key Points -> Conclusion. `;
+        prompt += `Structure: Spoken Intro -> 3 Spoken Points -> Spoken Conclusion. `;
       }
 
       prompt += `For 'color_hex': Pick NEON (#FF0055, #00CCFF, #00FF99). `;
       prompt += `Return JSON: { "scenes": [{ "text": "...", "color_hex": "..." }] };`;
-      // --- SMART PROMPT END ---
+      // --- END PROMPT ---
 
       try {
         const base = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -263,15 +275,18 @@ function createVideoApp() {
 
         const json = JSON.parse(raw);
 
-        // Map Scenes with Auto-Duration
+        // Map Scenes with Auto-Duration & Cleaning
         this.scenes = json.scenes.map((s, i) => {
-          // Auto-Calc Duration: 2.5 words per second
-          const wordCount = s.text.split(' ').length;
-          // Clamp duration: Minimum 2s, Maximum 7s (to keep flow good)
-          let calcDur = Math.max(2, Math.min(7, wordCount / 2.5));
+          // 1. Clean the text (Remove visual cues)
+          const spokenText = this.cleanText(s.text);
+
+          // 2. Auto-Calc Duration: 2.5 words per second
+          const wordCount = spokenText.split(' ').length;
+          // Clamp duration: Minimum 2s, Maximum 8s
+          let calcDur = Math.max(2, Math.min(8, wordCount / 2.5));
 
           return {
-            text: s.text,
+            text: spokenText,
             media_url: null,
             media_type: 'none',
             image_source: 'Empty',
@@ -332,7 +347,7 @@ function createVideoApp() {
       this.scenes[index].isWriting = true;
       const model = await this.getValidModel();
       const prompt =
-        `Topic: "${this.topic}". Write ONE short line (max 10 words, emoji).`;
+        `Topic: "${this.topic}". Write ONE short spoken sentence (max 10 words, no visual instructions).`;
       try {
         const base = "https://generativelanguage.googleapis.com/v1beta/models";
         const url = `${base}/${model}:generateContent?key=${this.apiKey}`;
@@ -350,7 +365,7 @@ function createVideoApp() {
           })
         });
         const data = await res.json();
-        this.scenes[index].text = data.candidates[0].content.parts[0].text.trim();
+        this.scenes[index].text = this.cleanText(data.candidates[0].content.parts[0].text);
       } catch (e) {
         this.scenes[index].text = "Error.";
       }
@@ -423,9 +438,14 @@ function createVideoApp() {
             type: 'audio/webm'
           });
           this.scenes[index].audio_blob = blob;
+
+          // --- DURATION AUTHORITY LOGIC ---
           const duration = (Date.now() - this.recStartTime) / 1000;
           this.scenes[index].recDuration = duration.toFixed(1);
+
+          // OVERWRITE the estimated duration with actual recording time
           this.scenes[index].duration = duration.toFixed(1);
+
           this.recordingIndex = null;
           this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
         };
