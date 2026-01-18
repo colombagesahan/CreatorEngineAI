@@ -31,7 +31,7 @@ function createVideoApp() {
 
     // Video State
     videoURL: null,
-    apiKey: 'AIzaSyBTqvuFntLnw1NOEt7RyZUzbZThvbbWXVU',
+    apiKey: 'AIzaSyBYpVANEBfX2W7L1J3bnEMGX-PjqxSAD08',
 
     // FFmpeg State
     ffmpeg: null,
@@ -100,37 +100,42 @@ function createVideoApp() {
       this.converting = false;
     },
 
-    // --- FFMPEG (Fixed for GitHub Pages) ---
+    // --- FFMPEG (Firebase Compatible) ---
     async convertToMP4() {
       if (!this.videoURL) return alert("No video to convert!");
       this.converting = true;
       try {
         if (!this.ffmpeg) {
           this.ffmpeg = new FFmpeg();
-          const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6';
-          const esmURL = `${baseURL}/dist/esm`;
 
-          // 1. Manually fetch the worker code
-          const workerResp = await fetch(`${esmURL}/ffmpeg-core.worker.js`);
+          // Define the URLs explicitly
+          const bUrl = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+          const coreURL = `${bUrl}/ffmpeg-core.js`;
+          const wasmURL = `${bUrl}/ffmpeg-core.wasm`;
+          const workerURL = `${bUrl}/ffmpeg-core.worker.js`;
+
+          // 1. Manually fetch the worker file as text
+          const workerResp = await fetch(workerURL);
+          if (!workerResp.ok) throw new Error("Failed to download worker script");
           const workerText = await workerResp.text();
-          // 2. Create a local Blob for the worker
-          const workerBlob = new Blob([workerText], {
+
+          // 2. Create a local Blob URL (Tricks browser into thinking it's a local file)
+          const blob = new Blob([workerText], {
             type: 'text/javascript'
           });
-          const workerObjURL = URL.createObjectURL(workerBlob);
+          const localWorkerURL = URL.createObjectURL(blob);
 
+          // 3. Load FFmpeg with the local worker URL
           await this.ffmpeg.load({
-            coreURL: await toBlobURL(`${esmURL}/ffmpeg-core.js`,
-              'text/javascript'),
-            wasmURL: await toBlobURL(`${esmURL}/ffmpeg-core.wasm`,
-              'application/wasm'),
-            workerURL: workerObjURL // Pass the local Blob URL
+            coreURL: await toBlobURL(coreURL, 'text/javascript'),
+            wasmURL: await toBlobURL(wasmURL, 'application/wasm'),
+            workerURL: localWorkerURL
           });
         }
 
-        await this.ffmpeg.writeFile('input.webm',
-          await fetchFile(this.videoURL));
+        await this.ffmpeg.writeFile('input.webm', await fetchFile(this.videoURL));
 
+        // Run conversion
         await this.ffmpeg.exec([
           '-i', 'input.webm',
           '-c:v', 'libx264',
@@ -144,10 +149,10 @@ function createVideoApp() {
           type: 'video/mp4'
         });
         this.mp4URL = URL.createObjectURL(blob);
+
       } catch (error) {
-        console.error("Conversion Error:", error);
-        alert(`Error: ${error.message}. If this persists, ` +
-          `it is likely a GitHub Pages threading limitation.`);
+        console.error("FFmpeg Error:", error);
+        alert(`Conversion Failed: ${error.message}`);
       }
       this.converting = false;
     },
@@ -175,7 +180,7 @@ function createVideoApp() {
       try {
         const model = await this.getValidModel();
         const prompt =
-          `Give ONE viral YouTube Short topic for ${this.targetCountry}.` +
+          `Give ONE viral YouTube video topic for ${this.targetCountry}.` +
           ` Return text only.`;
         const base = "https://generativelanguage.googleapis.com/v1beta/models";
         const url = `${base}/${model}:generateContent?key=${this.apiKey}`;
@@ -204,7 +209,7 @@ function createVideoApp() {
     async generateScript() {
       if (!this.topic) return alert("Enter a topic!");
       this.loading = true;
-      this.init();
+      this.init(); // Resize canvas based on format
       try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         this.audioCtx = new AudioContext();
@@ -213,11 +218,28 @@ function createVideoApp() {
       } catch (e) {}
 
       const model = await this.getValidModel();
+
+      // --- SMART PROMPT START ---
       let prompt = `Act as a Viral Director. Target: ${this.targetCountry}. `;
-      prompt += `Topic: "${this.topic}" Create 3 scenes. `;
-      prompt += `Scene 1: Hook (<8 words). Scenes 2-3: Content (<12 words). `;
+      prompt += `Topic: "${this.topic}". `;
+
+      if (this.format === '9:16') {
+        // Shorts Logic (Aim for ~30-40s initial draft)
+        prompt += `Format: YouTube Short (Vertical). `;
+        prompt += `Create 5 scenes. `;
+        prompt += `Scene 1: Hook (<8 words). `;
+        prompt += `Scenes 2-4: Fast value/facts (<12 words). `;
+        prompt += `Scene 5: Twist or Call to Action. `;
+      } else {
+        // Long Form Logic (Aim for ~90s initial draft)
+        prompt += `Format: Standard YouTube Video (Horizontal). `;
+        prompt += `Create 12 scenes. `;
+        prompt += `Structure: Intro -> 3 Key Points -> Conclusion. `;
+      }
+
       prompt += `For 'color_hex': Pick NEON (#FF0055, #00CCFF, #00FF99). `;
       prompt += `Return JSON: { "scenes": [{ "text": "...", "color_hex": "..." }] };`;
+      // --- SMART PROMPT END ---
 
       try {
         const base = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -240,20 +262,29 @@ function createVideoApp() {
         raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
 
         const json = JSON.parse(raw);
-        this.scenes = json.scenes.map((s, i) => ({
-          text: s.text,
-          media_url: null,
-          media_type: 'none',
-          image_source: 'Empty',
-          type: i === 0 ? 'hook' : 'content',
-          color: s.color_hex || '#FFD700',
-          fontSize: 80,
-          duration: 5,
-          audio_blob: null,
-          isWriting: false,
-          recDuration: 0,
-          animation: 'fade'
-        }));
+
+        // Map Scenes with Auto-Duration
+        this.scenes = json.scenes.map((s, i) => {
+          // Auto-Calc Duration: 2.5 words per second
+          const wordCount = s.text.split(' ').length;
+          // Clamp duration: Minimum 2s, Maximum 7s (to keep flow good)
+          let calcDur = Math.max(2, Math.min(7, wordCount / 2.5));
+
+          return {
+            text: s.text,
+            media_url: null,
+            media_type: 'none',
+            image_source: 'Empty',
+            type: i === 0 ? 'hook' : 'content',
+            color: s.color_hex || '#FFD700',
+            fontSize: 80,
+            duration: calcDur.toFixed(1), // Use smart duration
+            audio_blob: null,
+            isWriting: false,
+            recDuration: 0,
+            animation: 'fade'
+          };
+        });
         this.loading = false;
         this.step = 2;
       } catch (e) {
@@ -447,14 +478,38 @@ function createVideoApp() {
     },
 
     async startRendering() {
+      // 1. GATEKEEPER LOGIC (CHECK LIMITS)
+      let totalDuration = 0;
+      this.scenes.forEach(scene => {
+        totalDuration += parseFloat(scene.duration) || 0;
+      });
+
+      let maxLimit = 0;
+      if (this.format === '9:16') {
+        maxLimit = 59; // Shorts Limit
+      } else {
+        maxLimit = 120; // 2 Minutes (Safe Browser Limit)
+      }
+
+      if (totalDuration > maxLimit) {
+        let msg = `⚠️ LIMIT EXCEEDED\n\n`;
+        msg += `Your video is ${totalDuration.toFixed(1)} seconds.\n`;
+        msg += `Maximum allowed for ${this.format} is ${maxLimit} seconds.\n\n`;
+        msg += `Please decrease scene durations or delete some scenes.`;
+        return alert(msg);
+      }
+
+      // 2. CHECK ASSETS
       const missingImgs = this.scenes.some(s => !s.media_url && s.type !== 'outro');
       if (missingImgs) return alert("⚠️ Please upload visuals for all scenes!");
+
       this.processing = true;
       if (this.audioCtx.state === 'suspended') await this.audioCtx.resume();
       const canvas = document.getElementById('videoCanvas');
       const ctx = canvas.getContext('2d');
       const assets = [];
 
+      // 3. PRELOAD ASSETS
       for (let i = 0; i < this.scenes.length; i++) {
         this.progressText = `Preparing Scene ${i+1}/${this.scenes.length}`;
         const s = this.scenes[i];
@@ -500,6 +555,7 @@ function createVideoApp() {
         }
       }
 
+      // 4. MUSIC SETUP
       if (this.bgMusicBuffer && this.useBgMusic) {
         const s = this.audioCtx.createBufferSource();
         s.buffer = this.bgMusicBuffer;
@@ -552,6 +608,7 @@ function createVideoApp() {
           ctx.fillStyle = "black";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+          // DRAW VISUALS (Cover Logic for Both Formats)
           if (this.animState.video) {
             const v = this.animState.video;
             const vRatio = v.videoWidth / v.videoHeight;
@@ -601,6 +658,7 @@ function createVideoApp() {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
           }
 
+          // DRAW VIGNETTE
           const grad = ctx.createRadialGradient(
             canvas.width / 2, canvas.height / 2, canvas.width / 3,
             canvas.width / 2, canvas.height / 2, canvas.height
@@ -610,6 +668,7 @@ function createVideoApp() {
           ctx.fillStyle = grad;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+          // ANIMATE TEXT
           if (this.animState.animation === 'slide') {
             if (this.animState.textY > 0) this.animState.textY *= 0.9;
             this.animState.textAlpha = Math.min(this.animState.textAlpha + 0.05, 1);
@@ -657,6 +716,7 @@ function createVideoApp() {
 
       requestAnimationFrame(renderFrame);
 
+      // 5. PLAY SCENES
       for (let i = 0; i < this.scenes.length; i++) {
         const scene = this.scenes[i];
         const asset = assets[i];
